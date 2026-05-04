@@ -1,7 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
-import { useEffect, useState, type MouseEvent } from 'react';
+import { relaunch } from '@tauri-apps/plugin-process';
+import { check, type DownloadEvent, type Update } from '@tauri-apps/plugin-updater';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import {
   PET_ACTION_ANIMATION_IDS,
   type PetActionAnimationId,
@@ -28,6 +30,7 @@ import {
   type PetSettings,
   type RuntimeSnapshot,
   type SkillInstallResult,
+  type UpdateCheckResult,
 } from './pet/settings';
 
 const SCALE_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
@@ -62,11 +65,20 @@ const PROJECT_LINKS = [
   { key: 'projectAddress', href: 'https://github.com/X-T-E-R/OpenPet' },
   { key: 'milkTea', href: 'https://afdian.com/a/xter123' },
 ] as const;
+const GITHUB_RELEASES_URL = 'https://github.com/X-T-E-R/OpenPet/releases';
 const IDLE_ACTION_OPTIONS = [
   'random',
   'active-action',
   ...PET_ACTION_ANIMATION_IDS,
 ] as const satisfies readonly IdleActionId[];
+
+type UpdateSource = 'tauri' | 'github';
+type UpdateInstallPhase = 'idle' | 'downloading' | 'installed';
+
+type UpdateDownloadProgress = {
+  downloadedBytes: number;
+  contentLength: number | null;
+};
 
 const TRANSLATIONS = {
   en: {
@@ -114,6 +126,18 @@ const TRANSLATIONS = {
       ready: 'Ready.',
       previewOnly: 'Browser preview only. Open the Tauri desktop app to control the pet.',
       statusRefreshed: 'Status refreshed.',
+      checkingUpdates: 'Checking updates...',
+      updateAvailable: 'Update available:',
+      noUpdate: 'OpenPet is up to date.',
+      signedUpdaterUnavailable:
+        'Signed metadata unavailable; using GitHub fallback.',
+      nativeUpdateReady: 'Signed update ready:',
+      installingUpdate: 'Installing update...',
+      updateInstalled: 'Update installed. Restart OpenPet to finish.',
+      noSignedUpdate: 'No signed update is ready to install.',
+      restarting: 'Restarting OpenPet...',
+      autoUpdatesOn: 'Automatic update checks enabled.',
+      autoUpdatesOff: 'Automatic update checks disabled.',
       settingsUpdated: 'Settings updated.',
       languageUpdated: 'Language updated.',
       eventAnimationsOn: 'Event animations enabled.',
@@ -308,6 +332,27 @@ const TRANSLATIONS = {
       'OpenPet is a local desktop pet runtime for Codex-compatible companions, website imports, and agent-friendly HTTP events.',
     projectAddress: 'GitHub project',
     milkTea: 'Buy me milk tea',
+    updatesEyebrow: 'Updates',
+    updatesTitle: 'Desktop updates',
+    updatesBody: 'Signed updater first; GitHub fallback if metadata is missing.',
+    autoUpdateChecks: 'Auto-check',
+    autoUpdateChecksHint: 'Check on Settings open.',
+    checkForUpdates: 'Check',
+    openReleasePage: 'GitHub Releases',
+    downloadAndInstallUpdate: 'Install',
+    restartOpenPet: 'Restart',
+    currentVersion: 'Current',
+    latestVersion: 'Latest',
+    updateSource: 'Source',
+    signedUpdaterSource: 'Signed updater',
+    githubFallbackSource: 'GitHub fallback',
+    releaseNotes: 'Release notes',
+    publishedAt: 'Published',
+    downloadProgress: 'Progress',
+    updateAvailableTitle: 'Update ready',
+    updateUnavailableTitle: 'Up to date',
+    neverChecked: 'Not checked',
+    lastChecked: 'Checked',
     trayTip: 'Tray tip',
     trayTipBody: 'Use the app tray/menu controls for Open Settings, Show Pet, Hide Pet, and Quit.',
   },
@@ -356,6 +401,17 @@ const TRANSLATIONS = {
       ready: '就绪。',
       previewOnly: '浏览器预览模式。请打开 Tauri 桌面应用来控制宠物。',
       statusRefreshed: '状态已刷新。',
+      checkingUpdates: '检查更新中...',
+      updateAvailable: '发现更新：',
+      noUpdate: 'OpenPet 已是最新版本。',
+      signedUpdaterUnavailable: '签名元数据不可用，已回退 GitHub。',
+      nativeUpdateReady: '签名更新可安装：',
+      installingUpdate: '正在安装更新...',
+      updateInstalled: '更新已安装。请重启 OpenPet 完成更新。',
+      noSignedUpdate: '当前没有可安装的签名更新。',
+      restarting: '正在重启 OpenPet...',
+      autoUpdatesOn: '自动检查更新已开启。',
+      autoUpdatesOff: '自动检查更新已关闭。',
       settingsUpdated: '设置已更新。',
       languageUpdated: '语言已更新。',
       eventAnimationsOn: '事件动画已开启。',
@@ -539,6 +595,27 @@ const TRANSLATIONS = {
     aboutBody: 'OpenPet 是一个本地桌宠运行时，支持 Codex 兼容宠物、网站导入和 Agent 友好的 HTTP 事件。',
     projectAddress: 'GitHub 项目',
     milkTea: '请作者喝奶茶',
+    updatesEyebrow: '更新',
+    updatesTitle: '桌面更新',
+    updatesBody: '优先签名更新；元数据缺失时回退 GitHub。',
+    autoUpdateChecks: '自动检查',
+    autoUpdateChecksHint: '打开设置时检查。',
+    checkForUpdates: '检查更新',
+    openReleasePage: 'GitHub 发布页',
+    downloadAndInstallUpdate: '安装',
+    restartOpenPet: '重启',
+    currentVersion: '当前',
+    latestVersion: '最新',
+    updateSource: '来源',
+    signedUpdaterSource: '签名更新器',
+    githubFallbackSource: 'GitHub fallback',
+    releaseNotes: '更新说明',
+    publishedAt: '发布',
+    downloadProgress: '进度',
+    updateAvailableTitle: '可更新',
+    updateUnavailableTitle: '已是最新',
+    neverChecked: '未检查',
+    lastChecked: '检查',
     trayTip: '托盘提示',
     trayTipBody: '通过应用托盘 / 菜单可打开设置、显示宠物、隐藏宠物和退出。',
   },
@@ -598,8 +675,12 @@ function formatEventTime(receivedAtMs: number) {
   });
 }
 
+function unknownToMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function errorToMessage(error: unknown, previewOnlyMessage: string) {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = unknownToMessage(error);
 
   if (
     message.includes('Cannot read properties of undefined') &&
@@ -611,6 +692,25 @@ function errorToMessage(error: unknown, previewOnlyMessage: string) {
   return message;
 }
 
+function formatBytes(bytes: number) {
+  if (bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'] as const;
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** exponent;
+  return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+}
+
+function formatDownloadProgress(progress: UpdateDownloadProgress) {
+  if (!progress.contentLength) return formatBytes(progress.downloadedBytes);
+  const percent = Math.min(
+    100,
+    Math.round((progress.downloadedBytes / progress.contentLength) * 100),
+  );
+  return `${percent}% (${formatBytes(progress.downloadedBytes)} / ${formatBytes(
+    progress.contentLength,
+  )})`;
+}
+
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<(typeof SETTINGS_TABS)[number]>('general');
   const [snapshot, setSnapshot] = useState<RuntimeSnapshot>(FALLBACK_SNAPSHOT);
@@ -620,6 +720,15 @@ export function SettingsPage() {
   const [previewEvent, setPreviewEvent] = useState<CompanionEventType>('thinking');
   const [feedback, setFeedback] = useState<string>(TRANSLATIONS.en.feedback.ready);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [runtimeReady, setRuntimeReady] = useState(false);
+  const [updateCheckResult, setUpdateCheckResult] = useState<UpdateCheckResult | null>(null);
+  const [updateSource, setUpdateSource] = useState<UpdateSource | null>(null);
+  const [pendingTauriUpdate, setPendingTauriUpdate] = useState<Update | null>(null);
+  const [updateNotes, setUpdateNotes] = useState<string | null>(null);
+  const [updateInstallPhase, setUpdateInstallPhase] = useState<UpdateInstallPhase>('idle');
+  const [updateDownloadProgress, setUpdateDownloadProgress] =
+    useState<UpdateDownloadProgress | null>(null);
+  const [lastUpdateCheckAt, setLastUpdateCheckAt] = useState<string | null>(null);
   const [bundledSkills, setBundledSkills] = useState<BundledSkill[]>([]);
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
   const [selectedSkillTargetIds, setSelectedSkillTargetIds] = useState<string[]>(['codex']);
@@ -635,6 +744,7 @@ export function SettingsPage() {
   const [customPetStorageInput, setCustomPetStorageInput] = useState(
     FALLBACK_SNAPSHOT.settings.customPetStorageDir ?? '',
   );
+  const autoUpdateCheckStartedRef = useRef(false);
 
   const tauriAvailable = hasTauriRuntime();
   const settings = snapshot.settings;
@@ -654,6 +764,32 @@ export function SettingsPage() {
   const selectedPool = settings.clickActionPool.filter(isAction);
   const poolIsEmpty = settings.clickActionMode === 'random' && selectedPool.length === 0;
   const usingCustomPetStorage = petStoragePresetDraft === 'custom';
+  const updateProgressText = updateDownloadProgress
+    ? formatDownloadProgress(updateDownloadProgress)
+    : null;
+  const updateProgressPercent = updateDownloadProgress?.contentLength
+    ? Math.min(
+        100,
+        Math.round(
+          (updateDownloadProgress.downloadedBytes / updateDownloadProgress.contentLength) * 100,
+        ),
+      )
+    : null;
+  const latestUpdateLabel =
+    updateCheckResult?.latestVersion ?? updateCheckResult?.releaseName ?? 'GitHub Release';
+  const updateSourceLabel = updateSource
+    ? updateSource === 'tauri'
+      ? t.signedUpdaterSource
+      : t.githubFallbackSource
+    : null;
+  const updatePublishedAt = updateCheckResult?.publishedAt
+    ? new Date(updateCheckResult.publishedAt).toLocaleString()
+    : null;
+  const updateMetaItems = [
+    updateSourceLabel ? `${t.updateSource}: ${updateSourceLabel}` : null,
+    updatePublishedAt ? `${t.publishedAt}: ${updatePublishedAt}` : null,
+    lastUpdateCheckAt ? `${t.lastChecked}: ${lastUpdateCheckAt}` : null,
+  ].filter(Boolean);
 
   const actionLabel = (action: PetActionAnimationId) => t.actionLabels[action];
   const eventLabel = (eventType: CompanionEventType) => t.eventLabels[eventType];
@@ -664,6 +800,7 @@ export function SettingsPage() {
 
   useEffect(() => {
     if (!tauriAvailable) {
+      setRuntimeReady(false);
       setFeedback(t.feedback.previewOnly);
       return;
     }
@@ -671,16 +808,23 @@ export function SettingsPage() {
     let cancelled = false;
     void invoke<RuntimeSnapshot>('get_runtime_snapshot')
       .then((next) => {
-        if (!cancelled) setSnapshot(next);
+        if (!cancelled) {
+          setSnapshot(next);
+          setRuntimeReady(true);
+        }
       })
-      .catch((error) => setFeedback(errorToMessage(error, t.feedback.previewOnly)));
+      .catch((error) => {
+        setRuntimeReady(false);
+        setFeedback(errorToMessage(error, t.feedback.previewOnly));
+      });
 
     let unlisten: (() => void) | null = null;
-    void listen<RuntimeSnapshot>('runtime-status', (event) => setSnapshot(event.payload)).then(
-      (next) => {
-        unlisten = next;
-      },
-    );
+    void listen<RuntimeSnapshot>('runtime-status', (event) => {
+      setSnapshot(event.payload);
+      setRuntimeReady(true);
+    }).then((next) => {
+      unlisten = next;
+    });
 
     return () => {
       cancelled = true;
@@ -736,6 +880,127 @@ export function SettingsPage() {
       setBusyAction(null);
     }
   };
+
+  const resetUpdateInstallState = () => {
+    setPendingTauriUpdate(null);
+    setUpdateNotes(null);
+    setUpdateInstallPhase('idle');
+    setUpdateDownloadProgress(null);
+  };
+
+  const describeUpdateResult = (result: UpdateCheckResult, source: UpdateSource) => {
+    if (result.updateAvailable) {
+      if (source === 'tauri') {
+        return `${t.feedback.nativeUpdateReady} ${
+          result.latestVersion ?? result.releaseName ?? ''
+        }`.trim();
+      }
+      return `${t.feedback.updateAvailable} ${result.latestVersion ?? result.releaseName ?? ''}`.trim();
+    }
+    return `${t.feedback.noUpdate} (${result.currentVersion})`;
+  };
+
+  const checkGithubReleaseFallback = async (prefix?: string) => {
+    const result = await invoke<UpdateCheckResult>('check_for_update');
+    setUpdateCheckResult(result);
+    setUpdateSource('github');
+    setPendingTauriUpdate(null);
+    setUpdateNotes(null);
+    setLastUpdateCheckAt(new Date().toLocaleString());
+    setFeedback(`${prefix ? `${prefix} ` : ''}${describeUpdateResult(result, 'github')}`.trim());
+  };
+
+  const checkForUpdates = async () => {
+    await runCommand('update-check', async () => {
+      setFeedback(t.feedback.checkingUpdates);
+      resetUpdateInstallState();
+
+      try {
+        const update = await check();
+        if (!update) {
+          await checkGithubReleaseFallback();
+          return;
+        }
+
+        const result: UpdateCheckResult = {
+          currentVersion: update.currentVersion,
+          latestVersion: update.version,
+          releaseName: null,
+          releaseUrl: GITHUB_RELEASES_URL,
+          publishedAt: update.date ?? null,
+          updateAvailable: true,
+        };
+        setPendingTauriUpdate(update);
+        setUpdateNotes(update.body ?? null);
+        setUpdateSource('tauri');
+        setUpdateCheckResult(result);
+        setLastUpdateCheckAt(new Date().toLocaleString());
+        setFeedback(describeUpdateResult(result, 'tauri'));
+      } catch (updaterError) {
+        try {
+          await checkGithubReleaseFallback(t.feedback.signedUpdaterUnavailable);
+        } catch (fallbackError) {
+          throw new Error(
+            `${t.feedback.signedUpdaterUnavailable} ${unknownToMessage(
+              updaterError,
+            )}; GitHub fallback failed: ${unknownToMessage(fallbackError)}`,
+          );
+        }
+      }
+    });
+  };
+
+  const installPendingUpdate = async () => {
+    if (!pendingTauriUpdate) {
+      setFeedback(t.feedback.noSignedUpdate);
+      return;
+    }
+
+    await runCommand('update-install', async () => {
+      setFeedback(t.feedback.installingUpdate);
+      setUpdateInstallPhase('downloading');
+      setUpdateDownloadProgress({ downloadedBytes: 0, contentLength: null });
+      let downloadedBytes = 0;
+      let contentLength: number | null = null;
+      await pendingTauriUpdate.downloadAndInstall((event: DownloadEvent) => {
+        if (event.event === 'Started') {
+          downloadedBytes = 0;
+          contentLength = event.data.contentLength ?? null;
+          setUpdateDownloadProgress({ downloadedBytes, contentLength });
+          return;
+        }
+        if (event.event === 'Progress') {
+          downloadedBytes += event.data.chunkLength;
+          setUpdateDownloadProgress({ downloadedBytes, contentLength });
+          return;
+        }
+        setUpdateDownloadProgress({ downloadedBytes, contentLength });
+      });
+      setUpdateInstallPhase('installed');
+      setFeedback(t.feedback.updateInstalled);
+    });
+  };
+
+  const restartOpenPet = async () => {
+    await runCommand('update-restart', async () => {
+      setFeedback(t.feedback.restarting);
+      await relaunch();
+    });
+  };
+
+  useEffect(() => {
+    if (
+      !tauriAvailable ||
+      !runtimeReady ||
+      !settings.autoUpdateChecks ||
+      autoUpdateCheckStartedRef.current
+    ) {
+      return;
+    }
+
+    autoUpdateCheckStartedRef.current = true;
+    void checkForUpdates();
+  }, [runtimeReady, settings.autoUpdateChecks, tauriAvailable]);
 
   const refreshStatus = async () => {
     await runCommand('refresh', async () => {
@@ -909,6 +1174,11 @@ export function SettingsPage() {
       await invoke<void>('open_external_url', { url });
       setFeedback(t.feedback.linkOpened);
     });
+  };
+
+  const openReleasePage = async (event: MouseEvent<HTMLAnchorElement>) => {
+    const url = updateCheckResult?.releaseUrl || GITHUB_RELEASES_URL;
+    await openExternalLink(event, url);
   };
 
   const toggleSkillSelection = (skillId: string, checked: boolean) => {
@@ -1098,6 +1368,119 @@ export function SettingsPage() {
               </a>
             ))}
           </nav>
+          <div className="update-strip">
+            <div className="update-strip-main">
+              <div className="update-strip-copy">
+                <p className="eyebrow">{t.updatesEyebrow}</p>
+                <h3>{t.updatesTitle}</h3>
+                <span>{t.updatesBody}</span>
+              </div>
+              <div className="update-strip-controls">
+                <label className="compact-switch">
+                  <input
+                    type="checkbox"
+                    checked={settings.autoUpdateChecks}
+                    onChange={(event) => {
+                      const enabled = event.target.checked;
+                      void updateSettings(
+                        { ...settings, autoUpdateChecks: enabled },
+                        enabled ? t.feedback.autoUpdatesOn : t.feedback.autoUpdatesOff,
+                      );
+                    }}
+                    disabled={!tauriAvailable || busyAction === 'settings'}
+                  />
+                  <span>{t.autoUpdateChecks}</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void checkForUpdates()}
+                  disabled={!tauriAvailable || busyAction === 'update-check'}
+                >
+                  {busyAction === 'update-check' ? t.feedback.checkingUpdates : t.checkForUpdates}
+                </button>
+                {pendingTauriUpdate && updateInstallPhase !== 'installed' && (
+                  <button
+                    type="button"
+                    onClick={() => void installPendingUpdate()}
+                    disabled={
+                      !tauriAvailable ||
+                      busyAction === 'update-check' ||
+                      busyAction === 'update-install'
+                    }
+                  >
+                    {busyAction === 'update-install'
+                      ? t.feedback.installingUpdate
+                      : t.downloadAndInstallUpdate}
+                  </button>
+                )}
+                {updateInstallPhase === 'installed' && (
+                  <button
+                    type="button"
+                    onClick={() => void restartOpenPet()}
+                    disabled={!tauriAvailable || busyAction === 'update-restart'}
+                  >
+                    {busyAction === 'update-restart' ? t.feedback.restarting : t.restartOpenPet}
+                  </button>
+                )}
+                {updateCheckResult?.updateAvailable && (
+                  <a
+                    href={updateCheckResult.releaseUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(event) => void openReleasePage(event)}
+                  >
+                    {t.openReleasePage}
+                  </a>
+                )}
+              </div>
+            </div>
+            {updateCheckResult ? (
+              <div
+                className={`update-result-line ${
+                  updateCheckResult.updateAvailable ? 'available' : 'current'
+                }`}
+              >
+                <div className="update-result-summary">
+                  <strong>
+                    {updateCheckResult.updateAvailable
+                      ? t.updateAvailableTitle
+                      : t.updateUnavailableTitle}
+                  </strong>
+                  <span>
+                    {t.currentVersion}: {updateCheckResult.currentVersion} - {t.latestVersion}:{' '}
+                    {latestUpdateLabel}
+                  </span>
+                </div>
+                {updateMetaItems.length > 0 && (
+                  <small className="update-result-meta">{updateMetaItems.join(' · ')}</small>
+                )}
+                {(updateProgressText || updateNotes) && (
+                  <div className="update-result-detail">
+                    {updateProgressText && (
+                      <div className="update-progress" aria-live="polite">
+                        <small>
+                          {t.downloadProgress}: {updateProgressText}
+                        </small>
+                        {updateProgressPercent !== null && (
+                          <div className="update-progress-track">
+                            <span style={{ width: `${updateProgressPercent}%` }} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {updateNotes && (
+                      <details className="update-notes">
+                        <summary>{t.releaseNotes}</summary>
+                        <small>{updateNotes}</small>
+                      </details>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="update-empty">{t.neverChecked}</p>
+            )}
+          </div>
           <div className="tray-note">
             <strong>{t.trayTip}</strong>
             <span>{t.trayTipBody}</span>

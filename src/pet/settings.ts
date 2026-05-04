@@ -12,6 +12,7 @@ export type PetSettings = {
   language: PetLanguage;
   scale: number;
   reducedMotion: boolean;
+  autoUpdateChecks: boolean;
   autonomousWalking: boolean;
   hoverPause: boolean;
   activePetId: PetId;
@@ -67,6 +68,15 @@ export type RuntimeApiConfig = {
   port: number;
 };
 
+export type UpdateCheckResult = {
+  currentVersion: string;
+  latestVersion: string | null;
+  releaseName: string | null;
+  releaseUrl: string;
+  publishedAt: string | null;
+  updateAvailable: boolean;
+};
+
 export type BundledSkill = {
   id: string;
   displayName: string;
@@ -101,10 +111,11 @@ export const DEFAULT_SETTINGS: PetSettings = {
   language: 'en',
   scale: 1,
   reducedMotion: false,
+  autoUpdateChecks: true,
   autonomousWalking: false,
   hoverPause: true,
   activePetId: 'nia',
-  clickActionMode: 'fixed',
+  clickActionMode: 'random',
   clickAction: 'waving',
   clickActionPool: ['waving', 'jumping', 'waiting', 'running', 'review'],
   eventReactions: true,

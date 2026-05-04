@@ -978,6 +978,167 @@ summary {
   justify-content: flex-end;
 }
 
+.update-strip {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+  border: 1px solid rgba(36, 90, 70, 0.13);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.34);
+  color: var(--brand-dark);
+  padding: 0.72rem 0.78rem;
+}
+
+.update-strip-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.update-strip-copy {
+  min-width: 0;
+}
+
+.update-strip-copy .eyebrow {
+  margin-bottom: 0.22rem;
+  font-size: 0.68rem;
+}
+
+.update-strip-copy h3 {
+  display: inline;
+  margin-right: 0.45rem;
+}
+
+.update-strip-copy span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.update-strip-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.update-strip-controls button,
+.update-strip-controls a {
+  border-radius: 999px;
+  padding: 0.46rem 0.66rem;
+  font-size: 0.84rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.update-strip-controls a {
+  border: 1px solid rgba(36, 90, 70, 0.16);
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--brand-dark);
+  font-weight: 900;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.compact-switch {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  border: 1px solid rgba(36, 90, 70, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.52);
+  padding: 0.34rem 0.54rem;
+  color: var(--brand-dark);
+  font-size: 0.84rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.compact-switch input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--brand);
+}
+
+.update-result-line {
+  display: grid;
+  gap: 0.22rem;
+  border-top: 1px solid rgba(36, 90, 70, 0.1);
+  padding-top: 0.5rem;
+}
+
+.update-result-line.available {
+  color: #8d4c12;
+}
+
+.update-result-line.available .update-result-summary strong {
+  color: #8d4c12;
+}
+
+.update-result-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  align-items: baseline;
+  color: var(--brand-dark);
+  font-size: 0.88rem;
+}
+
+.update-result-summary span,
+.update-result-meta,
+.update-empty,
+.update-notes,
+.update-progress small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.update-empty {
+  margin: 0;
+}
+
+.update-result-detail {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.update-progress {
+  display: grid;
+  gap: 0.24rem;
+}
+
+.update-progress-track {
+  overflow: hidden;
+  max-width: 14rem;
+  border-radius: 999px;
+  background: rgba(36, 90, 70, 0.14);
+  height: 0.34rem;
+}
+
+.update-progress-track span {
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand), var(--accent));
+  height: 100%;
+  min-width: 0.3rem;
+  transition: width 180ms ease;
+}
+
+.update-notes summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.update-notes small {
+  display: block;
+  margin-top: 0.18rem;
+  line-height: 1.35;
+}
+
 pre {
   overflow-x: auto;
   margin: 0;
@@ -1007,6 +1168,7 @@ body:has(.pet-window) {
   background: transparent;
   box-shadow: none;
   cursor: grab;
+  pointer-events: none;
   touch-action: none;
   user-select: none;
 }
@@ -1020,6 +1182,17 @@ body:has(.pet-window) {
 }
 
 .pet-window.dragging {
+  cursor: grabbing;
+}
+
+.pet-hit-target {
+  display: block;
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.pet-window.dragging .pet-hit-target {
   cursor: grabbing;
 }
 
@@ -1088,7 +1261,7 @@ body:has(.pet-window) {
     transform 160ms ease;
 }
 
-.pet-window:hover .pet-sprite,
+.pet-hit-target:hover .pet-sprite,
 .pet-window.dragging .pet-sprite {
   filter: drop-shadow(0 16px 22px rgba(59, 130, 246, 0.28)) saturate(1.08);
   transform: translateY(-3px) scale(1.03);
@@ -1108,6 +1281,7 @@ body:has(.pet-window) {
   padding: 0.45rem;
   backdrop-filter: blur(18px);
   cursor: default;
+  pointer-events: auto;
 }
 
 .pet-context-menu button {
@@ -1151,6 +1325,14 @@ body:has(.pet-window) {
   }
 
   .support-links {
+    justify-content: flex-start;
+  }
+
+  .update-strip-main {
+    grid-template-columns: 1fr;
+  }
+
+  .update-strip-controls {
     justify-content: flex-start;
   }
 

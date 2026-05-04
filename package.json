@@ -1,6 +1,6 @@
 {
   "name": "openpet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "OpenPet desktop runtime for Codex-compatible pet companions.",
@@ -19,6 +19,8 @@
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-dialog": "~2.7.1",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },

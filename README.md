@@ -12,9 +12,15 @@ GitHub: <https://github.com/X-T-E-R/OpenPet>
 
 ## Quick Start
 
-For most users, install a packaged build for your platform from [GitHub Releases](https://github.com/X-T-E-R/OpenPet/releases) and launch OpenPet. The pet appears on your desktop, can be dragged to the position you want, and can be configured from the pet right-click menu or the app tray/menu.
+For most Windows users, install a packaged build from [GitHub Releases](https://github.com/X-T-E-R/OpenPet/releases) and launch OpenPet. The pet appears on your desktop, can be dragged to the position you want, and can be configured from the pet right-click menu or the app tray/menu.
 
 Release builds are generated for Windows, macOS, and Linux. Development and manual verification currently happen on Windows; macOS and Linux packages are built by CI but have not been manually tested by the developer yet.
+
+### Platform Status
+
+- Windows: primary manually verified platform.
+- macOS: CI builds Apple Silicon and Intel artifacts separately. Normal launch of a downloaded macOS app requires Apple Developer ID signing and notarization; if the release was built without those credentials, Gatekeeper may show that OpenPet is damaged or cannot be verified. Treat unsigned macOS artifacts as tester builds, not production-ready distribution.
+- Linux: CI builds `.deb`, `.rpm`, and `.AppImage` artifacts on Ubuntu, but runtime behavior has not been manually verified yet.
 
 To run from source:
 
@@ -152,6 +158,8 @@ For release checks and bundles:
 pnpm release:check
 pnpm release:bundle
 ```
+
+macOS release distribution needs Apple Developer ID signing and notarization. Configure `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `KEYCHAIN_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD`, and `APPLE_TEAM_ID` repository secrets before publishing macOS artifacts for normal end users; otherwise the workflow falls back to ad-hoc signed CI artifacts that Gatekeeper may block.
 
 ## Safety And Rights
 

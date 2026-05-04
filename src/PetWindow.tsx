@@ -5,6 +5,7 @@ import {
   LogicalSize,
   availableMonitors,
   currentMonitor,
+  cursorPosition,
   getCurrentWindow,
   primaryMonitor,
 } from '@tauri-apps/api/window';
@@ -50,6 +51,8 @@ const WORK_AREA_REFRESH_MS = 4000;
 const DEFAULT_BUBBLE_TTL_MS = 4000;
 const IDLE_SELF_PLAY_CHECK_MS = 1000;
 const DRAG_START_DISTANCE_PX = 4;
+const CURSOR_HIT_TEST_MS = 80;
+const PET_HIT_TARGET_PADDING_PX = 4;
 const CONTEXT_MENU_WIDTH = 188;
 const CONTEXT_MENU_HEIGHT = 214;
 const CONTEXT_LABELS = {
@@ -146,6 +149,21 @@ function bubbleStyleClass(style: BubbleStyle) {
   return BUBBLE_STYLES.includes(style) ? `pet-bubble-${style}` : 'pet-bubble-soft';
 }
 
+function pointInElementRect(
+  element: HTMLElement | null,
+  point: { x: number; y: number },
+  padding = 0,
+): boolean {
+  if (!element) return false;
+  const rect = element.getBoundingClientRect();
+  return (
+    point.x >= rect.left - padding &&
+    point.x <= rect.right + padding &&
+    point.y >= rect.top - padding &&
+    point.y <= rect.bottom + padding
+  );
+}
+
 export function PetWindow() {
   const [snapshot, setSnapshot] = useState<RuntimeSnapshot>(FALLBACK_SNAPSHOT);
   const [animation, setAnimation] = useState<PetAnimationId>('idle');
@@ -160,9 +178,13 @@ export function PetWindow() {
   const motionRef = useRef<PetMotionState | null>(null);
   const workAreaRef = useRef<Rect>(fallbackWorkArea());
   const surfaceSizeRef = useRef(getPetSurfaceSize(1));
+  const spriteHitTargetRef = useRef<HTMLDivElement | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const draggingRef = useRef(false);
+  const hoveredRef = useRef(false);
   const suppressClickRef = useRef(false);
+  const cursorEventsIgnoredRef = useRef<boolean | null>(null);
   const lastActivityRef = useRef(Date.now());
   const lastIdleActionAtRef = useRef(0);
 
@@ -174,6 +196,13 @@ export function PetWindow() {
   const markActivity = useCallback(() => {
     lastActivityRef.current = Date.now();
   }, []);
+
+  const setPetHovered = useCallback((active: boolean, markAsActivity = false) => {
+    if (hoveredRef.current === active) return;
+    hoveredRef.current = active;
+    if (active && markAsActivity) markActivity();
+    setHovered(active);
+  }, [markActivity]);
 
   const playAction = useCallback((animationId: PetAnimationId, markAsActivity = true) => {
     if (markAsActivity) markActivity();
@@ -352,6 +381,66 @@ export function PetWindow() {
   useEffect(() => {
     if (!tauriAvailable) return;
 
+    const appWindow = getCurrentWindow();
+    let cancelled = false;
+
+    const setIgnoreCursorEvents = async (ignore: boolean) => {
+      if (cursorEventsIgnoredRef.current === ignore) return;
+      cursorEventsIgnoredRef.current = ignore;
+      await appWindow.setIgnoreCursorEvents(ignore).catch(() => {
+        cursorEventsIgnoredRef.current = null;
+      });
+    };
+
+    const syncCursorHitTarget = async () => {
+      if (cancelled) return;
+      if (draggingRef.current) {
+        setPetHovered(true);
+        await setIgnoreCursorEvents(false);
+        return;
+      }
+
+      try {
+        const [cursor, windowPosition, scaleFactor] = await Promise.all([
+          cursorPosition(),
+          appWindow.innerPosition(),
+          appWindow.scaleFactor(),
+        ]);
+        if (cancelled) return;
+
+        const safeScaleFactor = scaleFactor || window.devicePixelRatio || 1;
+        const point = {
+          x: (cursor.x - windowPosition.x) / safeScaleFactor,
+          y: (cursor.y - windowPosition.y) / safeScaleFactor,
+        };
+        const overSprite = pointInElementRect(
+          spriteHitTargetRef.current,
+          point,
+          PET_HIT_TARGET_PADDING_PX,
+        );
+        const overContextMenu = pointInElementRect(contextMenuRef.current, point);
+
+        setPetHovered(overSprite, overSprite);
+        await setIgnoreCursorEvents(!(overSprite || overContextMenu));
+      } catch {
+        await setIgnoreCursorEvents(false);
+      }
+    };
+
+    void syncCursorHitTarget();
+    const timer = window.setInterval(() => void syncCursorHitTarget(), CURSOR_HIT_TEST_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      cursorEventsIgnoredRef.current = null;
+      void appWindow.setIgnoreCursorEvents(false).catch(() => {});
+    };
+  }, [setPetHovered, tauriAvailable]);
+
+  useEffect(() => {
+    if (!tauriAvailable) return;
+
     let cancelled = false;
     void invoke<RuntimeSnapshot>('get_runtime_snapshot')
       .then((next) => {
@@ -521,11 +610,6 @@ export function PetWindow() {
       onContextMenu={handleContextMenu}
       onKeyDown={handlePetKeyDown}
       onLostPointerCapture={() => finishDrag()}
-      onMouseEnter={() => {
-        markActivity();
-        setHovered(true);
-      }}
-      onMouseLeave={() => setHovered(false)}
       onPointerCancel={() => finishDrag()}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -543,14 +627,22 @@ export function PetWindow() {
           {bubble}
         </div>
       )}
-      <PetSprite
-        animationId={animation}
-        pet={snapshot.activePet}
-        scale={settings.scale}
-        reducedMotion={settings.reducedMotion}
-      />
+      <div
+        ref={spriteHitTargetRef}
+        className="pet-hit-target"
+        onMouseEnter={() => setPetHovered(true, true)}
+        onMouseLeave={() => setPetHovered(false)}
+      >
+        <PetSprite
+          animationId={animation}
+          pet={snapshot.activePet}
+          scale={settings.scale}
+          reducedMotion={settings.reducedMotion}
+        />
+      </div>
       {contextMenu && (
         <div
+          ref={contextMenuRef}
           className="pet-context-menu"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           role="menu"

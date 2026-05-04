@@ -4,6 +4,7 @@ src-tauri/target/
 .agents/
 .codex/
 .trellis/
+.workflow/
 AGENTS.md
 .playwright-mcp/
 codex-pet-runtime-settings-ui*.png

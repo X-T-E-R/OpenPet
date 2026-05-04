@@ -32,6 +32,10 @@ const MAX_HTML_BYTES: usize = 2 * 1024 * 1024;
 const MAX_JSON_BYTES: usize = 1024 * 1024;
 const MAX_SPRITESHEET_BYTES: usize = 12 * 1024 * 1024;
 const BUNDLED_SKILL_IDS: &[&str] = &["codex-pet-cli", "codex-pet-mcp", "codex-pet-asset"];
+const GITHUB_RELEASES_URL: &str = "https://github.com/X-T-E-R/OpenPet/releases";
+const GITHUB_LATEST_RELEASE_API: &str =
+    "https://api.github.com/repos/X-T-E-R/OpenPet/releases/latest";
+const UPDATE_CHECK_TIMEOUT_SECS: u64 = 10;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
@@ -86,7 +90,7 @@ pub enum ClickActionMode {
 
 impl Default for ClickActionMode {
     fn default() -> Self {
-        Self::Fixed
+        Self::Random
     }
 }
 
@@ -319,6 +323,10 @@ fn normalize_pet_settings(mut settings: PetSettings) -> PetSettings {
     settings
 }
 
+fn default_auto_update_checks() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
@@ -326,6 +334,8 @@ pub struct PetSettings {
     pub language: PetLanguage,
     pub scale: f64,
     pub reduced_motion: bool,
+    #[serde(default = "default_auto_update_checks")]
+    pub auto_update_checks: bool,
     pub autonomous_walking: bool,
     pub hover_pause: bool,
     pub active_pet_id: String,
@@ -354,10 +364,11 @@ impl Default for PetSettings {
             language: PetLanguage::default(),
             scale: 1.0,
             reduced_motion: false,
+            auto_update_checks: true,
             autonomous_walking: false,
             hover_pause: true,
             active_pet_id: DEFAULT_PET_ID.to_string(),
-            click_action_mode: ClickActionMode::Fixed,
+            click_action_mode: ClickActionMode::Random,
             click_action: PetActionAnimationId::Waving,
             click_action_pool: vec![
                 PetActionAnimationId::Waving,
@@ -504,6 +515,26 @@ pub enum PetStorageFolderKind {
     Active,
     AppData,
     CodexCustom,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+struct GithubRelease {
+    tag_name: String,
+    html_url: String,
+    name: Option<String>,
+    published_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCheckResult {
+    pub current_version: String,
+    pub latest_version: Option<String>,
+    pub release_name: Option<String>,
+    pub release_url: String,
+    pub published_at: Option<String>,
+    pub update_available: bool,
 }
 
 #[derive(Debug)]
@@ -679,16 +710,9 @@ impl AppState {
     }
 
     fn configure_settings(&self, settings: PetSettings) -> Result<(), String> {
-        let mut next_settings = normalize_pet_settings(settings);
+        let next_settings = normalize_pet_settings(settings);
         let next_imported_dir = {
             let state = self.inner.lock().expect("runtime state poisoned");
-            if !state
-                .pet_catalog
-                .iter()
-                .any(|pet| pet.id == next_settings.active_pet_id)
-            {
-                next_settings.active_pet_id = DEFAULT_PET_ID.to_string();
-            }
             state
                 .app_data_dir
                 .as_deref()
@@ -2032,6 +2056,93 @@ fn install_one_skill(
     }
 }
 
+fn normalize_release_version(raw_version: &str) -> Option<String> {
+    let trimmed = raw_version.trim();
+    let start = trimmed
+        .char_indices()
+        .find_map(|(index, ch)| ch.is_ascii_digit().then_some(index))?;
+    let version = &trimmed[start..];
+    let core = version
+        .split(['+', '-'])
+        .next()
+        .unwrap_or(version)
+        .trim()
+        .trim_matches('.');
+    (!core.is_empty()).then(|| core.to_string())
+}
+
+fn parse_version_parts(version: &str) -> Vec<u64> {
+    normalize_release_version(version)
+        .unwrap_or_else(|| version.trim().to_string())
+        .split('.')
+        .map(|part| {
+            part.chars()
+                .take_while(|ch| ch.is_ascii_digit())
+                .collect::<String>()
+                .parse::<u64>()
+                .unwrap_or(0)
+        })
+        .collect()
+}
+
+fn is_newer_release(latest_version: &str, current_version: &str) -> bool {
+    let latest_parts = parse_version_parts(latest_version);
+    let current_parts = parse_version_parts(current_version);
+    let max_len = latest_parts.len().max(current_parts.len()).max(3);
+
+    for index in 0..max_len {
+        let latest = latest_parts.get(index).copied().unwrap_or(0);
+        let current = current_parts.get(index).copied().unwrap_or(0);
+        if latest != current {
+            return latest > current;
+        }
+    }
+
+    false
+}
+
+async fn check_github_release_update() -> Result<UpdateCheckResult, String> {
+    let current_version = env!("CARGO_PKG_VERSION").to_string();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(UPDATE_CHECK_TIMEOUT_SECS))
+        .user_agent(format!("OpenPet/{current_version}"))
+        .build()
+        .map_err(|error| format!("failed to create update-check client: {error}"))?;
+    let response = client
+        .get(GITHUB_LATEST_RELEASE_API)
+        .header("accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|error| format!("failed to check GitHub Releases: {error}"))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!("failed to check GitHub Releases: HTTP {status}"));
+    }
+
+    let release = response
+        .json::<GithubRelease>()
+        .await
+        .map_err(|error| format!("failed to parse GitHub release metadata: {error}"))?;
+    let latest_version = normalize_release_version(&release.tag_name);
+    let update_available = latest_version
+        .as_deref()
+        .is_some_and(|latest| is_newer_release(latest, &current_version));
+
+    Ok(UpdateCheckResult {
+        current_version,
+        latest_version,
+        release_name: release.name,
+        release_url: if release.html_url.trim().is_empty() {
+            GITHUB_RELEASES_URL.to_string()
+        } else {
+            release.html_url
+        },
+        published_at: release.published_at,
+        update_available,
+    })
+}
+
 fn open_folder_path(path: &Path) -> Result<(), String> {
     fs::create_dir_all(path)
         .map_err(|error| format!("failed to create folder before opening it: {error}"))?;
@@ -2346,6 +2457,11 @@ fn toggle_pet_visibility(
 }
 
 #[tauri::command]
+async fn check_for_update() -> Result<UpdateCheckResult, String> {
+    check_github_release_update().await
+}
+
+#[tauri::command]
 async fn import_pet_from_website(
     app: AppHandle,
     state: tauri::State<'_, AppState>,
@@ -2407,6 +2523,8 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(state.clone())
         .setup(move |app| {
             match runtime_config_path(app.handle()) {
@@ -2460,6 +2578,7 @@ pub fn run() {
             show_pet,
             hide_pet,
             toggle_pet_visibility,
+            check_for_update,
             import_pet_from_website,
             list_bundled_skills,
             install_bundled_skills,
@@ -2626,6 +2745,71 @@ mod tests {
         assert!(normalize_external_url("file:///C:/Users/example").is_err());
         assert!(normalize_external_url("javascript:alert(1)").is_err());
         assert!(normalize_external_url("not a url").is_err());
+    }
+
+    #[test]
+    fn compares_github_release_versions() {
+        assert_eq!(
+            normalize_release_version("v0.2.0").as_deref(),
+            Some("0.2.0")
+        );
+        assert_eq!(
+            normalize_release_version("openpet-v1.4.0+build.3").as_deref(),
+            Some("1.4.0")
+        );
+        assert!(is_newer_release("v0.2.0", "0.1.9"));
+        assert!(is_newer_release("1.0", "0.9.9"));
+        assert!(!is_newer_release("0.1.0", "0.1.0"));
+        assert!(!is_newer_release("0.1.0", "0.2.0"));
+    }
+
+    #[test]
+    fn defaults_to_random_click_mode_with_fallback_pool() {
+        let settings = PetSettings::default();
+        assert_eq!(settings.click_action_mode, ClickActionMode::Random);
+        assert_eq!(settings.click_action, PetActionAnimationId::Waving);
+        assert!(settings.click_action_pool.contains(&settings.click_action));
+    }
+
+    #[test]
+    fn keeps_imported_active_pet_when_loading_settings_before_catalog_refresh() {
+        let root = std::env::temp_dir().join(format!(
+            "openpet-active-pet-persist-{}-{}",
+            std::process::id(),
+            now_ms()
+        ));
+        let imported_root = root.join("pets");
+        let pet_dir = imported_root.join("imported-nia");
+        fs::create_dir_all(&pet_dir).unwrap();
+        fs::write(pet_dir.join("spritesheet.webp"), b"placeholder").unwrap();
+        fs::write(
+            pet_dir.join("pet.json"),
+            r#"{
+  "id": "imported-nia",
+  "displayName": "Imported Nia",
+  "description": "Imported pet",
+  "spritesheetPath": "spritesheet.webp",
+  "imported": true
+}"#,
+        )
+        .unwrap();
+
+        let state = AppState::new(RuntimeApiConfig::default());
+        state
+            .configure_app_paths(root.join("app-data"), None)
+            .unwrap();
+        let mut settings = PetSettings::default();
+        settings.pet_storage_preset = PetStoragePreset::Custom;
+        settings.custom_pet_storage_dir = Some(imported_root.to_string_lossy().to_string());
+        settings.active_pet_id = "imported-nia".to_string();
+
+        state.configure_settings(settings).unwrap();
+        state.refresh_imported_pets().unwrap();
+
+        assert_eq!(state.settings().active_pet_id, "imported-nia");
+        assert_eq!(state.snapshot().active_pet.id, "imported-nia");
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

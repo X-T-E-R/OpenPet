@@ -10,18 +10,30 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.platform }}
+    name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.platform }}
+    env:
+      MACOS_DISTRIBUTION_READY: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.KEYCHAIN_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: ubuntu-22.04
+          - name: Linux x64
+            platform: ubuntu-22.04
             args: ""
-          - platform: macos-latest
+            rust_target: ""
+          - name: macOS Apple Silicon
+            platform: macos-latest
+            args: "--target aarch64-apple-darwin"
+            rust_target: aarch64-apple-darwin
+          - name: macOS Intel
+            platform: macos-latest
+            args: "--target x86_64-apple-darwin"
+            rust_target: x86_64-apple-darwin
+          - name: Windows x64
+            platform: windows-latest
             args: ""
-          - platform: windows-latest
-            args: ""
+            rust_target: ""
 
     steps:
       - name: Checkout
@@ -53,10 +65,59 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Add Rust target
+        if: matrix.rust_target != ''
+        run: rustup target add ${{ matrix.rust_target }}
+
+      - name: Import Apple Developer ID certificate
+        if: startsWith(matrix.platform, 'macos') && env.MACOS_DISTRIBUTION_READY == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application" | head -n 1 || true)
+          if [ -z "$CERT_INFO" ]; then
+            echo "::error::No Developer ID Application certificate found in the imported keychain."
+            exit 1
+          fi
+
+          CERT_ID=$(echo "$CERT_INFO" | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "APPLE_SIGNING_IDENTITY=$CERT_ID" >> "$GITHUB_ENV"
+
+      - name: Configure Apple notarization credentials
+        if: startsWith(matrix.platform, 'macos') && env.MACOS_DISTRIBUTION_READY == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          {
+            printf 'APPLE_ID=%s\n' "$APPLE_ID"
+            printf 'APPLE_PASSWORD=%s\n' "$APPLE_PASSWORD"
+            printf 'APPLE_TEAM_ID=%s\n' "$APPLE_TEAM_ID"
+          } >> "$GITHUB_ENV"
+
+      - name: Configure ad-hoc macOS signing fallback
+        if: startsWith(matrix.platform, 'macos') && env.MACOS_DISTRIBUTION_READY != 'true'
+        run: |
+          echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+          echo "::warning::macOS Developer ID signing/notarization secrets are incomplete. Building ad-hoc signed CI artifacts that Gatekeeper may block."
+
       - name: Build Tauri bundles
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           args: ${{ matrix.args }}
           tagName: ${{ github.ref_name }}
@@ -64,6 +125,15 @@ jobs:
           releaseBody: |
             Download the installer or bundle for your platform from the assets below.
 
-            Development and manual verification currently happen on Windows. macOS and Linux artifacts are built by CI but have not been manually tested by the developer yet.
+            Development and manual verification currently happen on Windows.
+
+            macOS notes:
+            - Normal launch of downloaded macOS apps requires Developer ID signing and Apple notarization.
+            - This workflow produces notarized macOS artifacts only when APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, KEYCHAIN_PASSWORD, APPLE_ID, APPLE_PASSWORD, and APPLE_TEAM_ID repository secrets are configured.
+            - If those secrets are missing, macOS artifacts are ad-hoc signed CI test builds and Gatekeeper may report that OpenPet is damaged or cannot be verified.
+            - Apple Silicon and Intel builds are separate assets; download the asset matching your Mac.
+
+            Linux notes:
+            - Linux .deb, .rpm, and AppImage artifacts are built by CI but have not been manually runtime-tested by the developer yet.
           releaseDraft: true
           prerelease: false

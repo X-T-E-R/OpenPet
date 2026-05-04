@@ -12,9 +12,15 @@ GitHub：<https://github.com/X-T-E-R/OpenPet>
 
 ## 快速开始
 
-普通用户可以从 [GitHub Releases](https://github.com/X-T-E-R/OpenPet/releases) 下载对应平台的打包版本后直接启动 OpenPet。桌宠会显示在桌面上，可以拖到你想要的位置，设置页可以从桌宠右键菜单或应用托盘 / 菜单打开。
+Windows 普通用户可以从 [GitHub Releases](https://github.com/X-T-E-R/OpenPet/releases) 下载打包版本后直接启动 OpenPet。桌宠会显示在桌面上，可以拖到你想要的位置，设置页可以从桌宠右键菜单或应用托盘 / 菜单打开。
 
 Release 会为 Windows、macOS 和 Linux 生成构建产物。当前开发与手动验证主要在 Windows 环境完成；macOS 和 Linux 包由 CI 构建，但开发者尚未手动测试。
+
+### 平台状态
+
+- Windows：当前主要手动验证平台。
+- macOS：CI 会分别构建 Apple Silicon 和 Intel 产物。macOS 从网络下载的应用要正常打开，需要 Apple Developer ID 签名和 Apple 公证；如果 release 构建时没有这些凭据，Gatekeeper 可能提示 OpenPet 已损坏或无法验证。
+- Linux：CI 会在 Ubuntu 上构建 `.deb`、`.rpm` 和 `.AppImage`，但运行行为尚未由开发者手动验证。
 
 从源码运行：
 
@@ -152,6 +158,8 @@ python skills\codex-pet-cli\scripts\codex_pet_cli.py import-local public\pets\ni
 pnpm release:check
 pnpm release:bundle
 ```
+
+macOS 正式分发需要 Apple Developer ID 签名和公证。发布面向普通用户的 macOS 产物前，需要在仓库 secrets 配置 `APPLE_CERTIFICATE`、`APPLE_CERTIFICATE_PASSWORD`、`KEYCHAIN_PASSWORD`、`APPLE_ID`、`APPLE_PASSWORD` 和 `APPLE_TEAM_ID`；否则 workflow 会退回到 ad-hoc signed CI 测试产物，Gatekeeper 仍可能拦截。
 
 ## 安全与权利提醒
 
