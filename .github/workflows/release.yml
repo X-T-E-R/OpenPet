@@ -135,5 +135,5 @@ jobs:
 
             Linux notes:
             - Linux .deb, .rpm, and AppImage artifacts are built by CI but have not been manually runtime-tested by the developer yet.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
