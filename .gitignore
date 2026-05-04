@@ -1,0 +1,14 @@
+node_modules/
+dist/
+src-tauri/target/
+.agents/
+.codex/
+.trellis/
+AGENTS.md
+.playwright-mcp/
+codex-pet-runtime-settings-ui*.png
+*.log
+.env
+.env.*
+__pycache__/
+*.pyc

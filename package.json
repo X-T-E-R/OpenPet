@@ -1,0 +1,34 @@
+{
+  "name": "openpet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "OpenPet desktop runtime for Codex-compatible pet companions.",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "dev": "node ./scripts/check-dev-port.mjs && vite --host 127.0.0.1",
+    "dev:browser": "vite --host 127.0.0.1 --mode browser",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "release:check": "pnpm build && cargo check --manifest-path src-tauri/Cargo.toml",
+    "release:bundle": "pnpm release:check && pnpm tauri:build",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/plugin-dialog": "~2.7.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.0",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10"
+  },
+  "packageManager": "pnpm@10.32.1"
+}
