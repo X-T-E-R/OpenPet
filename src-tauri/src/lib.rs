@@ -13,7 +13,7 @@ use tauri::{
     menu::{Menu, MenuItem},
     path::BaseDirectory,
     tray::TrayIconBuilder,
-    AppHandle, Emitter, Manager,
+    AppHandle, Emitter, Manager, WindowEvent,
 };
 
 const DEFAULT_PORT: u16 = 17321;
@@ -983,8 +983,10 @@ struct PetdexManifest {
 struct PetdexPet {
     slug: String,
     display_name: String,
-    description: String,
-    page_url: String,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    page_url: Option<String>,
     spritesheet_url: String,
 }
 
@@ -1195,14 +1197,22 @@ async fn resolve_petdex_source(
         .find(|pet| pet.slug == slug)
         .ok_or_else(|| format!("Petdex pet '{slug}' was not found in the public manifest."))?;
     let spritesheet_url = parse_safe_import_url(&pet.spritesheet_url)?;
+    let description = match option_trimmed(&pet.description) {
+        Some(description) => description,
+        None => fetch_page_description(client, source_url)
+            .await
+            .unwrap_or_else(|| "Imported from Petdex.".to_string()),
+    };
+    let source_url =
+        option_trimmed(&pet.page_url).unwrap_or_else(|| source_url.as_str().to_string());
 
     Ok(ResolvedPetSource {
         id: sanitize_pet_id(&pet.slug),
         display_name: truncate_chars(&pet.display_name, 96),
-        description: truncate_chars(&pet.description, 280),
+        description: truncate_chars(&description, 280),
         spritesheet_url,
         source_name: "Petdex".to_string(),
-        source_url: pet.page_url,
+        source_url,
     })
 }
 
@@ -1232,34 +1242,27 @@ async fn resolve_codex_pets_source(
     })
 }
 
+async fn fetch_page_description(client: &reqwest::Client, source_url: &url::Url) -> Option<String> {
+    let html = fetch_text(client, source_url.clone(), MAX_HTML_BYTES)
+        .await
+        .ok()?;
+    extract_page_description(&html)
+}
+
 async fn resolve_generic_pet_page(
     client: &reqwest::Client,
     source_url: &url::Url,
 ) -> Result<ResolvedPetSource, String> {
     let html = fetch_text(client, source_url.clone(), MAX_HTML_BYTES).await?;
-    let json_ld = extract_json_ld_values(&html);
-    let display_name = json_ld
-        .iter()
-        .find_map(|value| find_json_string(value, "name"))
-        .or_else(|| extract_meta_content(&html, "og:title"))
-        .or_else(|| extract_title(&html))
+    let display_name = extract_page_display_name(&html)
         .map(|value| clean_title(&value))
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| "Imported Pet".to_string());
-    let description = json_ld
-        .iter()
-        .find_map(|value| find_json_string(value, "description"))
-        .or_else(|| extract_meta_content(&html, "description"))
+    let description = extract_page_description(&html)
         .unwrap_or_else(|| "Imported Codex-compatible pet.".to_string());
-    let spritesheet_url = json_ld
-        .iter()
-        .filter_map(find_json_webp)
-        .find(|candidate| is_likely_spritesheet(candidate))
-        .and_then(|candidate| source_url.join(&candidate).ok())
-        .or_else(|| extract_webp_url(&html, source_url))
-        .ok_or_else(|| {
-            "Could not find a Codex-compatible spritesheet.webp on this page.".to_string()
-        })?;
+    let spritesheet_url = extract_page_spritesheet_url(&html, source_url).ok_or_else(|| {
+        "Could not find a Codex-compatible spritesheet.webp on this page.".to_string()
+    })?;
     let id_hint = source_url
         .path_segments()
         .and_then(|segments| segments.filter(|segment| !segment.is_empty()).last())
@@ -1277,6 +1280,33 @@ async fn resolve_generic_pet_page(
             .to_string(),
         source_url: source_url.as_str().to_string(),
     })
+}
+
+fn extract_page_display_name(html: &str) -> Option<String> {
+    let json_ld = extract_json_ld_values(html);
+    json_ld
+        .iter()
+        .find_map(|value| find_json_string(value, "name"))
+        .or_else(|| extract_meta_content(html, "og:title"))
+        .or_else(|| extract_title(html))
+}
+
+fn extract_page_description(html: &str) -> Option<String> {
+    let json_ld = extract_json_ld_values(html);
+    json_ld
+        .iter()
+        .find_map(|value| find_json_string(value, "description"))
+        .or_else(|| extract_meta_content(html, "description"))
+}
+
+fn extract_page_spritesheet_url(html: &str, base_url: &url::Url) -> Option<url::Url> {
+    let json_ld = extract_json_ld_values(html);
+    json_ld
+        .iter()
+        .filter_map(find_json_webp)
+        .find(|candidate| is_likely_spritesheet(candidate))
+        .and_then(|candidate| base_url.join(&candidate).ok())
+        .or_else(|| extract_webp_url(html, base_url))
 }
 
 fn path_segment_after(url: &url::Url, prefix: &str) -> Option<String> {
@@ -1720,13 +1750,33 @@ pub(crate) async fn import_website_pet(
     payload: WebsiteImportPayload,
 ) -> Result<RuntimeSnapshot, String> {
     let url = parse_safe_import_url(&payload.url)?;
-    let client = reqwest::Client::builder()
-        .user_agent("OpenPet/0.1 website-import")
-        .timeout(Duration::from_secs(25))
-        .build()
-        .map_err(|error| format!("failed to create HTTP client: {error}"))?;
+    let client = website_import_client()?;
     let resolved = resolve_pet_source(&client, &url).await?;
     install_resolved_pet(app, state, &client, resolved, payload.force).await
+}
+
+fn website_import_client() -> Result<reqwest::Client, String> {
+    let mut builder = reqwest::Client::builder()
+        .user_agent("OpenPet/0.1 website-import")
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(25));
+
+    let certificates = native_tls_root_certificates();
+    if !certificates.is_empty() {
+        builder = builder.tls_certs_only(certificates);
+    }
+
+    builder
+        .build()
+        .map_err(|error| format!("failed to create HTTP client: {error}"))
+}
+
+fn native_tls_root_certificates() -> Vec<reqwest::Certificate> {
+    rustls_native_certs::load_native_certs()
+        .certs
+        .into_iter()
+        .filter_map(|cert| reqwest::Certificate::from_der(cert.as_ref()).ok())
+        .collect()
 }
 
 fn now_ms() -> u128 {
@@ -2351,6 +2401,20 @@ fn build_tray(app: &tauri::App, language: PetLanguage) -> tauri::Result<()> {
     Ok(())
 }
 
+fn hide_settings_window_on_close<R: tauri::Runtime>(
+    window: &tauri::Window<R>,
+    event: &WindowEvent,
+) {
+    if window.label() != "settings" {
+        return;
+    }
+
+    if let WindowEvent::CloseRequested { api, .. } = event {
+        api.prevent_close();
+        let _ = window.hide();
+    }
+}
+
 #[tauri::command]
 fn get_runtime_snapshot(app: AppHandle, state: tauri::State<AppState>) -> RuntimeSnapshot {
     sync_pet_visibility(&app, &state);
@@ -2526,6 +2590,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(state.clone())
+        .on_window_event(hide_settings_window_on_close)
         .setup(move |app| {
             match runtime_config_path(app.handle()) {
                 Ok(path) => {
@@ -2709,6 +2774,64 @@ mod tests {
             extract_webp_url(html, &base).map(|url| url.to_string()),
             Some("https://www.codexpetshop.com/sprites/ruckusbear.webp".to_string())
         );
+    }
+
+    #[test]
+    fn deserializes_current_petdex_manifest_shape() {
+        let manifest = serde_json::from_str::<PetdexManifest>(
+            r#"{
+              "generatedAt": "2026-05-04T11:25:36.320Z",
+              "total": 468,
+              "pets": [{
+                "slug": "kebo",
+                "displayName": "Kebo",
+                "kind": "creature",
+                "submittedBy": "railly",
+                "spritesheetUrl": "https://cdn.example.test/curated/kebo/spritesheet.webp",
+                "petJsonUrl": "https://cdn.example.test/curated/kebo/pet.json",
+                "zipUrl": "https://cdn.example.test/curated/kebo/kebo.zip"
+              }]
+            }"#,
+        )
+        .unwrap();
+
+        let pet = manifest.pets.first().unwrap();
+        assert_eq!(pet.slug, "kebo");
+        assert_eq!(pet.description.as_deref(), None);
+        assert_eq!(pet.page_url.as_deref(), None);
+    }
+
+    #[test]
+    fn extracts_spriteyard_json_ld_metadata() {
+        let base = url::Url::parse("https://spriteyard.com/pets/nib/").unwrap();
+        let html = r#"
+          <script type="application/ld+json">{
+            "@context": "https://schema.org",
+            "@type": "CreativeWork",
+            "name": "Nib",
+            "description": "A pixel pet package for Codex.",
+            "image": "https://assets.spriteyard.com/pets/nib/spritesheet.webp",
+            "encoding": {
+              "@type": "MediaObject",
+              "contentUrl": "https://assets.spriteyard.com/pets/nib/nib.zip"
+            }
+          }</script>
+        "#;
+
+        assert_eq!(extract_page_display_name(html).as_deref(), Some("Nib"));
+        assert_eq!(
+            extract_page_description(html).as_deref(),
+            Some("A pixel pet package for Codex.")
+        );
+        assert_eq!(
+            extract_page_spritesheet_url(html, &base).map(|url| url.to_string()),
+            Some("https://assets.spriteyard.com/pets/nib/spritesheet.webp".to_string())
+        );
+    }
+
+    #[test]
+    fn builds_website_import_client() {
+        website_import_client().unwrap();
     }
 
     #[test]

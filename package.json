@@ -1,6 +1,6 @@
 {
   "name": "openpet",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "description": "OpenPet desktop runtime for Codex-compatible pet companions.",
