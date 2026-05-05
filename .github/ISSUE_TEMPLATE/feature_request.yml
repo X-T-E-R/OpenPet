@@ -1,0 +1,61 @@
+name: Feature request
+description: Suggest an improvement or new capability for OpenPet.
+title: "[Feature]: "
+labels: ["enhancement", "status: needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing an idea. English or Chinese are both welcome.
+  - type: checkboxes
+    id: existing
+    attributes:
+      label: Existing issues
+      description: Please search before opening a new request.
+      options:
+        - label: I have searched existing issues and did not find a duplicate.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What are you trying to do, and why is the current behavior not enough?
+      placeholder: I want OpenPet to...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would a good solution look like?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Pet runtime
+        - Settings UI
+        - Pet import
+        - CLI or MCP
+        - Release or packaging
+        - Documentation
+        - Other
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: If you already tried or considered another approach, describe it here.
+    validations:
+      required: false
+  - type: textarea
+    id: extra-context
+    attributes:
+      label: Additional context
+      description: Links, screenshots, mockups, or related tools.
+    validations:
+      required: false

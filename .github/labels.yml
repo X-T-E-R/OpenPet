@@ -1,0 +1,83 @@
+# Repository label taxonomy for OpenPet.
+#
+# GitHub does not sync this file automatically. It documents the intended label
+# set and can be applied with `gh label create --force`.
+
+- name: bug
+  color: d73a4a
+  description: Something is not working as expected.
+- name: documentation
+  color: 0075ca
+  description: Improvements or additions to documentation.
+- name: duplicate
+  color: cfd3d7
+  description: This issue or pull request already exists.
+- name: enhancement
+  color: a2eeef
+  description: New feature or request.
+- name: good first issue
+  color: 7057ff
+  description: Good for newcomers.
+- name: help wanted
+  color: 008672
+  description: Extra attention is needed.
+- name: invalid
+  color: e4e669
+  description: This is not valid or no longer relevant.
+- name: question
+  color: d876e3
+  description: Usage or integration question.
+- name: wontfix
+  color: ffffff
+  description: This will not be worked on.
+- name: dependencies
+  color: 0366d6
+  description: Dependency updates or dependency-related issues.
+- name: "area: runtime"
+  color: 1d76db
+  description: Desktop pet runtime, window behavior, tray, or local API.
+- name: "area: ui"
+  color: c5def5
+  description: React UI, settings, visual layout, or interaction changes.
+- name: "area: import"
+  color: bfd4f2
+  description: Pet import, website compatibility, or catalog behavior.
+- name: "area: cli-mcp"
+  color: 5319e7
+  description: Agent CLI, MCP bridge, or automation integration.
+- name: "area: release"
+  color: 0e8a16
+  description: CI, packaging, signing, updater, or release distribution.
+- name: "area: docs"
+  color: 0075ca
+  description: README, guides, examples, or project documentation.
+- name: "platform: windows"
+  color: 0052cc
+  description: Windows-specific behavior or packaging.
+- name: "platform: macos"
+  color: 5319e7
+  description: macOS-specific behavior or packaging.
+- name: "platform: linux"
+  color: f9d0c4
+  description: Linux-specific behavior or packaging.
+- name: "priority: high"
+  color: b60205
+  description: Important issue that should be handled soon.
+- name: "priority: normal"
+  color: fbca04
+  description: Normal priority work.
+- name: "priority: low"
+  color: 0e8a16
+  description: Nice-to-have or low urgency work.
+- name: "status: needs triage"
+  color: ededed
+  description: New issue or PR awaiting maintainer triage.
+- name: "status: needs info"
+  color: d4c5f9
+  description: Waiting for more information from the author.
+- name: "status: blocked"
+  color: 000000
+  description: Blocked by an external dependency or unresolved decision.
+- name: "status: ready to merge"
+  color: 0e8a16
+  description: Reviewed and ready to merge.

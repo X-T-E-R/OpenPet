@@ -1,0 +1,59 @@
+name: Pet import compatibility
+description: Report a website or pet package that OpenPet cannot import correctly.
+title: "[Import]: "
+labels: ["bug", "area: import", "status: needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when an import source or Codex-compatible pet package fails. English or Chinese are both welcome.
+  - type: checkboxes
+    id: existing
+    attributes:
+      label: Existing issues
+      options:
+        - label: I have searched existing issues and did not find a duplicate.
+          required: true
+  - type: input
+    id: source-url
+    attributes:
+      label: Source URL or package path
+      description: Paste the public pet page URL, share URL, or describe the local package.
+      placeholder: "https://petdex.crafter.run/pets/..."
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: What failed?
+      description: Describe the error, missing asset, wrong animation, or unexpected result.
+    validations:
+      required: true
+  - type: dropdown
+    id: source-type
+    attributes:
+      label: Source type
+      options:
+        - Petdex
+        - Codex Pets
+        - SpriteYard
+        - Codex Pet Shop
+        - Local package
+        - Other website
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Paste import logs or screenshots if available.
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: OpenPet version
+      placeholder: "v0.1.2, main branch commit, or unknown"
+    validations:
+      required: false

@@ -1,0 +1,23 @@
+name: Question
+description: Ask a usage or integration question.
+title: "[Question]: "
+labels: ["question", "status: needs info"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English or Chinese are both welcome.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What would you like to know?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Tell us what you are building, what you tried, or which agent/tool you are integrating.
+    validations:
+      required: false
