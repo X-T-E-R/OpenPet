@@ -1,4 +1,4 @@
-import type { PetAnimationId, PetWindowSize } from './animation';
+import type { PetAnimationId, PetSurfaceInsets, PetWindowSize } from './animation';
 
 export type Rect = {
   x: number;
@@ -17,6 +17,7 @@ export type PetMotionState = {
 };
 
 const EDGE_MARGIN = 8;
+const NO_SURFACE_INSETS: PetSurfaceInsets = { left: 0, right: 0 };
 
 function clamp(value: number, min: number, max: number): number {
   if (max < min) return min;
@@ -29,6 +30,17 @@ function groundY(workArea: Rect, surfaceSize: PetWindowSize): number {
 
 function toAnimation(direction: PetDirection): PetAnimationId {
   return direction > 0 ? 'running-right' : 'running-left';
+}
+
+function horizontalBounds(
+  workArea: Rect,
+  surfaceSize: PetWindowSize,
+  surfaceInsets: PetSurfaceInsets = NO_SURFACE_INSETS,
+) {
+  return {
+    left: workArea.x + EDGE_MARGIN - surfaceInsets.left,
+    right: workArea.x + workArea.width - surfaceSize.width - EDGE_MARGIN + surfaceInsets.right,
+  };
 }
 
 export function fallbackWorkArea(): Rect {
@@ -44,9 +56,12 @@ export function fallbackWorkArea(): Rect {
   };
 }
 
-export function createRestingPetMotion(workArea: Rect, surfaceSize: PetWindowSize): PetMotionState {
-  const left = workArea.x + EDGE_MARGIN;
-  const right = workArea.x + workArea.width - surfaceSize.width - EDGE_MARGIN;
+export function createRestingPetMotion(
+  workArea: Rect,
+  surfaceSize: PetWindowSize,
+  surfaceInsets?: PetSurfaceInsets,
+): PetMotionState {
+  const { left, right } = horizontalBounds(workArea, surfaceSize, surfaceInsets);
   return {
     x: clamp(right, left, right),
     y: groundY(workArea, surfaceSize),
@@ -58,10 +73,14 @@ export function createRestingPetMotion(workArea: Rect, surfaceSize: PetWindowSiz
 export function createInitialPetMotion(
   workArea: Rect,
   surfaceSize: PetWindowSize,
-  direction: PetDirection = 1,
+  directionOrInsets: PetDirection | PetSurfaceInsets = 1,
+  surfaceInsets?: PetSurfaceInsets,
 ): PetMotionState {
+  const direction = typeof directionOrInsets === 'number' ? directionOrInsets : 1;
+  const resolvedInsets = typeof directionOrInsets === 'number' ? surfaceInsets : directionOrInsets;
+  const { left, right } = horizontalBounds(workArea, surfaceSize, resolvedInsets);
   return {
-    x: clamp(workArea.x + EDGE_MARGIN, workArea.x + EDGE_MARGIN, workArea.x + workArea.width),
+    x: clamp(left, left, right),
     y: groundY(workArea, surfaceSize),
     direction,
     animation: toAnimation(direction),
@@ -72,9 +91,9 @@ export function clampPetMotionToWorkArea(
   state: PetMotionState,
   workArea: Rect,
   surfaceSize: PetWindowSize,
+  surfaceInsets?: PetSurfaceInsets,
 ): PetMotionState {
-  const left = workArea.x + EDGE_MARGIN;
-  const right = workArea.x + workArea.width - surfaceSize.width - EDGE_MARGIN;
+  const { left, right } = horizontalBounds(workArea, surfaceSize, surfaceInsets);
   const top = workArea.y + EDGE_MARGIN;
   const bottom = workArea.y + workArea.height - surfaceSize.height - EDGE_MARGIN;
   return {
@@ -88,6 +107,7 @@ export function resolvePetMotion({
   state,
   workArea,
   surfaceSize,
+  surfaceInsets,
   speedPx = 8,
   autonomousWalking,
   reducedMotion,
@@ -96,6 +116,7 @@ export function resolvePetMotion({
   state: PetMotionState;
   workArea: Rect;
   surfaceSize: PetWindowSize;
+  surfaceInsets?: PetSurfaceInsets;
   speedPx?: number;
   autonomousWalking: boolean;
   reducedMotion: boolean;
@@ -103,13 +124,12 @@ export function resolvePetMotion({
 }): PetMotionState {
   if (reducedMotion || !autonomousWalking || paused) {
     return {
-      ...clampPetMotionToWorkArea(state, workArea, surfaceSize),
+      ...clampPetMotionToWorkArea(state, workArea, surfaceSize, surfaceInsets),
       animation: 'idle',
     };
   }
 
-  const left = workArea.x + EDGE_MARGIN;
-  const right = workArea.x + workArea.width - surfaceSize.width - EDGE_MARGIN;
+  const { left, right } = horizontalBounds(workArea, surfaceSize, surfaceInsets);
   let direction = state.direction;
   let x = state.x + speedPx * direction;
 

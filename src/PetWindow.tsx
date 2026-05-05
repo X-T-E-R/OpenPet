@@ -24,6 +24,7 @@ import {
   type PetAnimationId,
   getPetAnimation,
   getPetAnimationDurationMs,
+  getPetSurfaceInsets,
   getPetSurfaceSize,
   isPetAnimationId,
   pickPetActionFromPool,
@@ -178,6 +179,7 @@ export function PetWindow() {
   const motionRef = useRef<PetMotionState | null>(null);
   const workAreaRef = useRef<Rect>(fallbackWorkArea());
   const surfaceSizeRef = useRef(getPetSurfaceSize(1));
+  const surfaceInsetsRef = useRef(getPetSurfaceInsets(1));
   const spriteHitTargetRef = useRef<HTMLDivElement | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
@@ -284,7 +286,12 @@ export function PetWindow() {
     const deltaX = state.latestPointer.x - state.startPointer.x;
     const deltaY = state.latestPointer.y - state.startPointer.y;
     const current =
-      motionRef.current ?? createRestingPetMotion(workAreaRef.current, surfaceSizeRef.current);
+      motionRef.current ??
+      createRestingPetMotion(
+        workAreaRef.current,
+        surfaceSizeRef.current,
+        surfaceInsetsRef.current,
+      );
     const next = clampPetMotionToWorkArea(
       {
         ...current,
@@ -293,6 +300,7 @@ export function PetWindow() {
       },
       workAreaRef.current,
       surfaceSizeRef.current,
+      surfaceInsetsRef.current,
     );
     motionRef.current = next;
     if (tauriAvailable) {
@@ -317,7 +325,12 @@ export function PetWindow() {
     markActivity();
     setContextMenu(null);
     const current =
-      motionRef.current ?? createRestingPetMotion(workAreaRef.current, surfaceSizeRef.current);
+      motionRef.current ??
+      createRestingPetMotion(
+        workAreaRef.current,
+        surfaceSizeRef.current,
+        surfaceInsetsRef.current,
+      );
     dragStateRef.current = {
       pointerId: event.pointerId,
       startPointer: { x: event.screenX, y: event.screenY },
@@ -528,7 +541,9 @@ export function PetWindow() {
 
   useEffect(() => {
     const surfaceSize = getPetSurfaceSize(settings.scale);
+    const surfaceInsets = getPetSurfaceInsets(settings.scale);
     surfaceSizeRef.current = surfaceSize;
+    surfaceInsetsRef.current = surfaceInsets;
     let cancelled = false;
     const walkingPaused = (settings.hoverPause && hovered) || dragging;
 
@@ -543,13 +558,14 @@ export function PetWindow() {
       workAreaRef.current = snapshotWorkArea.rect;
       if (!motionRef.current) {
         motionRef.current = settings.autonomousWalking
-          ? createInitialPetMotion(snapshotWorkArea.rect, surfaceSize)
-          : createRestingPetMotion(snapshotWorkArea.rect, surfaceSize);
+          ? createInitialPetMotion(snapshotWorkArea.rect, surfaceSize, surfaceInsets)
+          : createRestingPetMotion(snapshotWorkArea.rect, surfaceSize, surfaceInsets);
       } else {
         motionRef.current = clampPetMotionToWorkArea(
           motionRef.current,
           snapshotWorkArea.rect,
           surfaceSize,
+          surfaceInsets,
         );
       }
     };
@@ -558,13 +574,14 @@ export function PetWindow() {
       const workArea = workAreaRef.current;
       if (!motionRef.current) {
         motionRef.current = settings.autonomousWalking
-          ? createInitialPetMotion(workArea, surfaceSize)
-          : createRestingPetMotion(workArea, surfaceSize);
+          ? createInitialPetMotion(workArea, surfaceSize, surfaceInsets)
+          : createRestingPetMotion(workArea, surfaceSize, surfaceInsets);
       }
       const next = resolvePetMotion({
         state: motionRef.current,
         workArea,
         surfaceSize,
+        surfaceInsets,
         autonomousWalking: settings.autonomousWalking,
         reducedMotion: settings.reducedMotion,
         paused: walkingPaused,

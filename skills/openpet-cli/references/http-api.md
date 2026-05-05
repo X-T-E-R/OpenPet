@@ -3,7 +3,7 @@
 Read this only when debugging raw HTTP behavior or changing runtime routes. For normal agent use, prefer:
 
 ```powershell
-python scripts\codex_pet_cli.py --help
+python scripts\openpet_cli.py --help
 ```
 
 ## Base URL

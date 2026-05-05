@@ -31,7 +31,7 @@ const DEFAULT_PET_ID: &str = "nia";
 const MAX_HTML_BYTES: usize = 2 * 1024 * 1024;
 const MAX_JSON_BYTES: usize = 1024 * 1024;
 const MAX_SPRITESHEET_BYTES: usize = 12 * 1024 * 1024;
-const BUNDLED_SKILL_IDS: &[&str] = &["codex-pet-cli", "codex-pet-mcp", "codex-pet-asset"];
+const BUNDLED_SKILL_IDS: &[&str] = &["openpet-cli", "openpet-mcp", "openpet-asset"];
 const GITHUB_RELEASES_URL: &str = "https://github.com/X-T-E-R/OpenPet/releases";
 const GITHUB_LATEST_RELEASE_API: &str =
     "https://api.github.com/repos/X-T-E-R/OpenPet/releases/latest";
@@ -1906,15 +1906,15 @@ fn env_runtime_api_config(mut config: RuntimeApiConfig) -> RuntimeApiConfig {
 
 fn bundled_skill_metadata(id: &str) -> Option<BundledSkill> {
     let (display_name, description) = match id {
-        "codex-pet-cli" => (
+        "openpet-cli" => (
             "OpenPet CLI skill",
             "Control OpenPet through the bundled Python CLI for local command-capable agents.",
         ),
-        "codex-pet-mcp" => (
+        "openpet-mcp" => (
             "OpenPet MCP skill",
             "Configure MCP clients to use the bundled OpenPet stdio bridge.",
         ),
-        "codex-pet-asset" => (
+        "openpet-asset" => (
             "OpenPet asset skill",
             "Create, validate, and package Codex-compatible pet spritesheets.",
         ),

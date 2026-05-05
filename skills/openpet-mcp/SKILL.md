@@ -1,5 +1,5 @@
 ---
-name: codex-pet-mcp
+name: openpet-mcp
 description: Use the OpenPet MCP bridge to inspect and control the local desktop pet, send status events, and import compatible pet sources through the running runtime.
 ---
 
@@ -29,7 +29,7 @@ For MCP clients that accept a stdio server command, point them at:
   "mcpServers": {
     "openpet": {
       "command": "python",
-      "args": ["skills/codex-pet-mcp/scripts/openpet_mcp_server.py"]
+      "args": ["skills/openpet-mcp/scripts/openpet_mcp_server.py"]
     }
   }
 }
@@ -43,7 +43,7 @@ If OpenPet is using a non-default HTTP endpoint, pass it explicitly:
     "openpet": {
       "command": "python",
       "args": [
-        "skills/codex-pet-mcp/scripts/openpet_mcp_server.py",
+        "skills/openpet-mcp/scripts/openpet_mcp_server.py",
         "--base-url",
         "http://127.0.0.1:17322"
       ]

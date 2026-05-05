@@ -797,7 +797,7 @@ def command_help(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="codex-pet-cli",
+        prog="openpet-cli",
         description="Control OpenPet and import Codex-compatible pet packages through the local runtime.",
     )
     parser.add_argument("--base-url", help="Runtime base URL, default derived from --port.")

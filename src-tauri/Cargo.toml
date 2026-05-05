@@ -1,6 +1,6 @@
 [package]
 name = "openpet"
-version = "0.1.3"
+version = "0.1.4"
 description = "OpenPet desktop runtime for Codex-compatible pet companions"
 authors = ["OpenPet contributors"]
 edition = "2021"

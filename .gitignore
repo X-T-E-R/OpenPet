@@ -7,7 +7,7 @@ src-tauri/target/
 .workflow/
 AGENTS.md
 .playwright-mcp/
-codex-pet-runtime-settings-ui*.png
+openpet-settings-ui*.png
 *.log
 .env
 .env.*

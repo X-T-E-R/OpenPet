@@ -134,6 +134,11 @@ export type PetWindowSize = {
   height: number;
 };
 
+export type PetSurfaceInsets = {
+  left: number;
+  right: number;
+};
+
 const DISPLAY_SCALE_TO_RENDER_SCALE = 0.75;
 
 export function getPetRenderScale(displayScale: number): number {
@@ -178,6 +183,17 @@ export function getPetSurfaceSize(scale: number): PetWindowSize {
   return {
     width: Math.max(340, sprite.width),
     height: sprite.height + 140,
+  };
+}
+
+export function getPetSurfaceInsets(scale: number): PetSurfaceInsets {
+  const sprite = getPetSpriteSize(scale);
+  const surface = getPetSurfaceSize(scale);
+  const horizontalInset = Math.max(0, surface.width - sprite.width);
+
+  return {
+    left: Math.floor(horizontalInset / 2),
+    right: Math.ceil(horizontalInset / 2),
   };
 }
 

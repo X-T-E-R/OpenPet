@@ -1,5 +1,5 @@
 ---
-name: codex-pet-cli
+name: openpet-cli
 description: Use the OpenPet agent CLI protocol to inspect and control the local desktop pet, send status events, and import Codex-compatible local or website pet sources through the running runtime.
 ---
 
@@ -10,12 +10,12 @@ Use this skill when OpenClaw, Codex, or another local agent needs to operate Ope
 Default entry point:
 
 ```powershell
-python scripts\codex_pet_cli.py --help
+python scripts\openpet_cli.py --help
 ```
 
 ## Workflow
 
-1. Run `python scripts\codex_pet_cli.py doctor --json` when runtime reachability, app-data assumptions, or local server state matters.
+1. Run `python scripts\openpet_cli.py doctor --json` when runtime reachability, app-data assumptions, or local server state matters.
 2. Use `status`, `action`, `say`, and `event` for live control through the configured local runtime endpoint.
 3. Use `import-local <path>` to ask the running OpenPet runtime to import a local package directory, `pet.json`, or `spritesheet.webp`.
 4. Use `import-website <url>` to ask the running OpenPet runtime to import a supported HTTPS website source.
@@ -25,15 +25,15 @@ python scripts\codex_pet_cli.py --help
 ## Commands
 
 ```powershell
-python scripts\codex_pet_cli.py --help
-python scripts\codex_pet_cli.py doctor --json
-python scripts\codex_pet_cli.py status --json
-python scripts\codex_pet_cli.py action waving
-python scripts\codex_pet_cli.py say "Thinking..." --ttl-ms 4000
-python scripts\codex_pet_cli.py event success --message "Tests passed"
-python scripts\codex_pet_cli.py import-local public\pets\nia --dry-run --json
-python scripts\codex_pet_cli.py import-local <path-to-pet-folder>
-python scripts\codex_pet_cli.py import-website https://petdex.crafter.run/pets/boba
+python scripts\openpet_cli.py --help
+python scripts\openpet_cli.py doctor --json
+python scripts\openpet_cli.py status --json
+python scripts\openpet_cli.py action waving
+python scripts\openpet_cli.py say "Thinking..." --ttl-ms 4000
+python scripts\openpet_cli.py event success --message "Tests passed"
+python scripts\openpet_cli.py import-local public\pets\nia --dry-run --json
+python scripts\openpet_cli.py import-local <path-to-pet-folder>
+python scripts\openpet_cli.py import-website https://petdex.crafter.run/pets/boba
 ```
 
 ## Event Contract
@@ -52,7 +52,7 @@ python scripts\codex_pet_cli.py import-website https://petdex.crafter.run/pets/b
 - Do not load API details by default.
 - Read `references/http-api.md` only when debugging raw HTTP requests, adding routes, or explaining endpoint payloads.
 - Read `references/runtime-contract.md` only when changing import behavior, pet package validation, app-data storage, or runtime catalog assumptions.
-- Read `scripts/codex_pet_cli.py` only when modifying or debugging the CLI implementation.
+- Read `scripts/openpet_cli.py` only when modifying or debugging the CLI implementation.
 
 ## Runtime Boundaries
 
@@ -67,9 +67,9 @@ python scripts\codex_pet_cli.py import-website https://petdex.crafter.run/pets/b
 After changing this skill or CLI, run:
 
 ```powershell
-python scripts\codex_pet_cli.py --help
-python scripts\codex_pet_cli.py doctor --json
-python scripts\codex_pet_cli.py import-local ..\..\public\pets\nia --dry-run --json
+python scripts\openpet_cli.py --help
+python scripts\openpet_cli.py doctor --json
+python scripts\openpet_cli.py import-local ..\..\public\pets\nia --dry-run --json
 ```
 
 If Rust runtime contracts changed, also run:

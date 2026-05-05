@@ -61,30 +61,30 @@ spritesheet.webp
 
 OpenPet 面向本地 agent 控制。按需要安装对应 skill：
 
-- `codex-pet-cli`：适合能运行本地命令的 agent，走 CLI 控制路径。
-- `codex-pet-mcp`：适合支持 Model Context Protocol 的 agent 或 MCP client。
-- `codex-pet-asset`：可选的宠物创建 / 校验流程，只有创建或打包宠物时才需要。
+- `openpet-cli`：适合能运行本地命令的 agent，走 CLI 控制路径。
+- `openpet-mcp`：适合支持 Model Context Protocol 的 agent 或 MCP client。
+- `openpet-asset`：可选的宠物创建 / 校验流程，只有创建或打包宠物时才需要。
 
-日常控制桌宠时，`codex-pet-cli` 和 `codex-pet-mcp` 二选一即可。能直接请求 localhost 的 agent 可以使用下方 HTTP API 指引，不需要安装单独的 skill。
+日常控制桌宠时，`openpet-cli` 和 `openpet-mcp` 二选一即可。能直接请求 localhost 的 agent 可以使用下方 HTTP API 指引，不需要安装单独的 skill。
 
 ### Agent Hook 提示
 
-如果想让 OpenPet 和现有 agent 联动，可以在 `AGENTS.md`、`.cursorrules` 或类似 agent 指令文件里留一条简短规则：让 agent 在长任务中使用已安装的 OpenPet skill，例如 `codex-pet-cli` 或 `codex-pet-mcp`，把进度同步给桌宠。
+如果想让 OpenPet 和现有 agent 联动，可以在 `AGENTS.md`、`.cursorrules` 或类似 agent 指令文件里留一条简短规则：让 agent 在长任务中使用已安装的 OpenPet skill，例如 `openpet-cli` 或 `openpet-mcp`，把进度同步给桌宠。
 
 如果安装了多个 OpenPet skill，可以让 agent 自己选择一种集成路径，并把选择后的简短规则浓缩写进本地指令文件。规则只需要引用已安装 skill，不需要重复协议或命令细节。
 
 ### CLI
 
 ```powershell
-python skills\codex-pet-cli\scripts\codex_pet_cli.py --help
-python skills\codex-pet-cli\scripts\codex_pet_cli.py doctor --json
-python skills\codex-pet-cli\scripts\codex_pet_cli.py status --json
-python skills\codex-pet-cli\scripts\codex_pet_cli.py event thinking --message "正在阅读仓库..."
-python skills\codex-pet-cli\scripts\codex_pet_cli.py import-local public\pets\nia --dry-run --json
-python skills\codex-pet-cli\scripts\codex_pet_cli.py import-website https://petdex.crafter.run/pets/boba
+python skills\openpet-cli\scripts\openpet_cli.py --help
+python skills\openpet-cli\scripts\openpet_cli.py doctor --json
+python skills\openpet-cli\scripts\openpet_cli.py status --json
+python skills\openpet-cli\scripts\openpet_cli.py event thinking --message "正在阅读仓库..."
+python skills\openpet-cli\scripts\openpet_cli.py import-local public\pets\nia --dry-run --json
+python skills\openpet-cli\scripts\openpet_cli.py import-website https://petdex.crafter.run/pets/boba
 ```
 
-给 agent 的规则里可以要求它通过 `codex-pet-cli` skill 查询状态、发送进度事件或导入宠物。CLI 会调用运行中的本地 runtime；如果 OpenPet 不可访问，实时命令会安全失败并给出明确错误，而不是绕过应用私写 app data。
+给 agent 的规则里可以要求它通过 `openpet-cli` skill 查询状态、发送进度事件或导入宠物。CLI 会调用运行中的本地 runtime；如果 OpenPet 不可访问，实时命令会安全失败并给出明确错误，而不是绕过应用私写 app data。
 
 ### MCP
 
@@ -95,7 +95,7 @@ MCP bridge 适合支持 Model Context Protocol 的 IDE 或 agent。打开你的 
   "mcpServers": {
     "openpet": {
       "command": "python",
-      "args": ["skills/codex-pet-mcp/scripts/openpet_mcp_server.py"]
+      "args": ["skills/openpet-mcp/scripts/openpet_mcp_server.py"]
     }
   }
 }
@@ -146,10 +146,10 @@ curl -X POST http://127.0.0.1:17321/api/import/local \
 ```powershell
 pnpm build
 cargo test --manifest-path src-tauri/Cargo.toml
-python skills\codex-pet-cli\scripts\codex_pet_cli.py --help
-python skills\codex-pet-mcp\scripts\openpet_mcp_server.py --help
-python skills\codex-pet-cli\scripts\codex_pet_cli.py doctor --json
-python skills\codex-pet-cli\scripts\codex_pet_cli.py import-local public\pets\nia --dry-run --json
+python skills\openpet-cli\scripts\openpet_cli.py --help
+python skills\openpet-mcp\scripts\openpet_mcp_server.py --help
+python skills\openpet-cli\scripts\openpet_cli.py doctor --json
+python skills\openpet-cli\scripts\openpet_cli.py import-local public\pets\nia --dry-run --json
 ```
 
 发布检查和打包：

@@ -854,7 +854,7 @@ export function SettingsPage() {
         setBundledSkills(skills);
         setSelectedSkillIds((current) => {
           if (current.length > 0) return current;
-          const preferredIds = ['codex-pet-cli', 'codex-pet-asset'];
+          const preferredIds = ['openpet-cli', 'openpet-asset'];
           return preferredIds.filter((id) => skills.some((skill) => skill.id === id));
         });
       })

@@ -61,30 +61,30 @@ The importer downloads public metadata and the WebP spritesheet for the URL you 
 
 OpenPet is designed to be controlled by local agents. Install only the skills you need:
 
-- `codex-pet-cli`: CLI control path for agents that can run local commands.
-- `codex-pet-mcp`: MCP control path for agents or clients that support Model Context Protocol.
-- `codex-pet-asset`: optional pet creation / validation workflow; install only when creating or packaging pets.
+- `openpet-cli`: CLI control path for agents that can run local commands.
+- `openpet-mcp`: MCP control path for agents or clients that support Model Context Protocol.
+- `openpet-asset`: optional pet creation / validation workflow; install only when creating or packaging pets.
 
-For normal control, choose either `codex-pet-cli` or `codex-pet-mcp`. Agents that can call localhost directly can use the HTTP API guidance below without installing a separate skill.
+For normal control, choose either `openpet-cli` or `openpet-mcp`. Agents that can call localhost directly can use the HTTP API guidance below without installing a separate skill.
 
 ### Agent Hook Tip
 
-If you want OpenPet to collaborate with an existing agent, add a short note to `AGENTS.md`, `.cursorrules`, or a similar agent instruction file. Tell the agent to use an installed OpenPet skill, such as `codex-pet-cli` or `codex-pet-mcp`, for desktop-pet progress updates during long work.
+If you want OpenPet to collaborate with an existing agent, add a short note to `AGENTS.md`, `.cursorrules`, or a similar agent instruction file. Tell the agent to use an installed OpenPet skill, such as `openpet-cli` or `openpet-mcp`, for desktop-pet progress updates during long work.
 
 If several OpenPet skills are installed, let the agent choose one integration path and condense the chosen rule into its local instruction file. The rule should reference the installed skill instead of duplicating protocol or command details.
 
 ### CLI
 
 ```powershell
-python skills\codex-pet-cli\scripts\codex_pet_cli.py --help
-python skills\codex-pet-cli\scripts\codex_pet_cli.py doctor --json
-python skills\codex-pet-cli\scripts\codex_pet_cli.py status --json
-python skills\codex-pet-cli\scripts\codex_pet_cli.py event thinking --message "Reading the repo..."
-python skills\codex-pet-cli\scripts\codex_pet_cli.py import-local public\pets\nia --dry-run --json
-python skills\codex-pet-cli\scripts\codex_pet_cli.py import-website https://petdex.crafter.run/pets/boba
+python skills\openpet-cli\scripts\openpet_cli.py --help
+python skills\openpet-cli\scripts\openpet_cli.py doctor --json
+python skills\openpet-cli\scripts\openpet_cli.py status --json
+python skills\openpet-cli\scripts\openpet_cli.py event thinking --message "Reading the repo..."
+python skills\openpet-cli\scripts\openpet_cli.py import-local public\pets\nia --dry-run --json
+python skills\openpet-cli\scripts\openpet_cli.py import-website https://petdex.crafter.run/pets/boba
 ```
 
-In agent instructions, tell the agent to use the `codex-pet-cli` skill for status checks, progress events, or pet imports. The CLI calls the running local runtime; if OpenPet is not reachable, live commands fail safely with a clear message instead of modifying app data behind the app's back.
+In agent instructions, tell the agent to use the `openpet-cli` skill for status checks, progress events, or pet imports. The CLI calls the running local runtime; if OpenPet is not reachable, live commands fail safely with a clear message instead of modifying app data behind the app's back.
 
 ### MCP
 
@@ -95,7 +95,7 @@ The MCP bridge is for IDEs or agents that support Model Context Protocol. Open y
   "mcpServers": {
     "openpet": {
       "command": "python",
-      "args": ["skills/codex-pet-mcp/scripts/openpet_mcp_server.py"]
+      "args": ["skills/openpet-mcp/scripts/openpet_mcp_server.py"]
     }
   }
 }
@@ -146,10 +146,10 @@ You can change the runtime listen address and port in Settings. Endpoint changes
 ```powershell
 pnpm build
 cargo test --manifest-path src-tauri/Cargo.toml
-python skills\codex-pet-cli\scripts\codex_pet_cli.py --help
-python skills\codex-pet-mcp\scripts\openpet_mcp_server.py --help
-python skills\codex-pet-cli\scripts\codex_pet_cli.py doctor --json
-python skills\codex-pet-cli\scripts\codex_pet_cli.py import-local public\pets\nia --dry-run --json
+python skills\openpet-cli\scripts\openpet_cli.py --help
+python skills\openpet-mcp\scripts\openpet_mcp_server.py --help
+python skills\openpet-cli\scripts\openpet_cli.py doctor --json
+python skills\openpet-cli\scripts\openpet_cli.py import-local public\pets\nia --dry-run --json
 ```
 
 For release checks and bundles:

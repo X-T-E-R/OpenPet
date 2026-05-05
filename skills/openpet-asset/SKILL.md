@@ -1,5 +1,5 @@
 ---
-name: codex-pet-asset
+name: openpet-asset
 description: Create, validate, and package Codex-compatible desktop pet assets for OpenPet.
 ---
 
@@ -52,8 +52,8 @@ python scripts\validate_atlas.py <path-to-spritesheet>
 6. For local user imports, prefer the CLI:
 
 ```powershell
-python ..\codex-pet-cli\scripts\codex_pet_cli.py import-local <pet-folder> --dry-run
-python ..\codex-pet-cli\scripts\codex_pet_cli.py import-local <pet-folder>
+python ..\openpet-cli\scripts\openpet_cli.py import-local <pet-folder> --dry-run
+python ..\openpet-cli\scripts\openpet_cli.py import-local <pet-folder>
 ```
 
 ## Runtime Rules
@@ -69,7 +69,7 @@ python ..\codex-pet-cli\scripts\codex_pet_cli.py import-local <pet-folder>
 
 - `validate_atlas.py` reports `ok: true`, or another deterministic atlas check confirms dimensions/grid/cell size.
 - `pet.json` uses a safe id and relative `spritesheetPath`.
-- Imported packages validate with `python ..\codex-pet-cli\scripts\codex_pet_cli.py import-local <path> --dry-run`.
+- Imported packages validate with `python ..\openpet-cli\scripts\openpet_cli.py import-local <path> --dry-run`.
 - No white, checkerboard, or opaque rectangular background is visible in used or unused cells.
 - The pet shell shows the full `192x208` CSS cell at scale `1`.
 - Source, license status, and redistribution caveats are preserved before bundling or sharing assets.
