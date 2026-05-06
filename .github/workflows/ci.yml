@@ -24,7 +24,8 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
-            libxdo-dev
+            libxdo-dev \
+            libx11-dev
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
@@ -101,6 +102,7 @@ jobs:
             librsvg2-dev \
             patchelf \
             libxdo-dev \
+            libx11-dev \
             dbus-x11 \
             webkit2gtk-driver \
             xvfb
@@ -141,6 +143,7 @@ jobs:
           LIBGL_ALWAYS_SOFTWARE: "1"
           NO_AT_BRIDGE: "1"
           OPENPET_SKIP_TAURI_BUILD: "1"
+          WEBKIT_DISABLE_COMPOSITING_MODE: "1"
           WEBKIT_DISABLE_DMABUF_RENDERER: "1"
         run: xvfb-run -a dbus-run-session -- pnpm e2e:tauri
 

@@ -370,18 +370,11 @@ export function PetWindow() {
       startPointer: { x: event.screenX, y: event.screenY },
       latestPointer: { x: event.screenX, y: event.screenY },
       startWindow: { x: current.x, y: current.y },
-      nativeDragging: tauriAvailable,
+      nativeDragging: false,
       started: false,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
-    if (!tauriAvailable) return;
-    const state = dragStateRef.current;
-    void getCurrentWindow()
-      .startDragging()
-      .catch(() => {
-        if (dragStateRef.current === state && state) state.nativeDragging = false;
-      });
-  }, [markActivity, tauriAvailable]);
+  }, [markActivity]);
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -396,11 +389,22 @@ export function PetWindow() {
         state.started = true;
         suppressClickRef.current = true;
         setDragActive(true);
+        if (tauriAvailable) {
+          state.nativeDragging = true;
+          void getCurrentWindow()
+            .startDragging()
+            .catch(() => {
+              if (dragStateRef.current !== state) return;
+              state.nativeDragging = false;
+              moveManualDrag(state);
+            });
+          return;
+        }
       }
       if (state.nativeDragging) return;
       if (state.started) moveManualDrag(state);
     },
-    [moveManualDrag, setDragActive],
+    [moveManualDrag, setDragActive, tauriAvailable],
   );
 
   const handlePointerUp = useCallback(

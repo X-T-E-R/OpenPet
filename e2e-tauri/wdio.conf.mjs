@@ -7,7 +7,6 @@ const rootDir = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const tauriTargetDir = path.join(rootDir, 'src-tauri', 'target', 'debug');
 const appBinaryName = process.platform === 'win32' ? 'openpet.exe' : 'openpet';
 const appBinaryPath = path.join(tauriTargetDir, appBinaryName);
-const pnpmBinary = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const tauriDriverBinary =
   process.env.TAURI_DRIVER ??
   path.join(os.homedir(), '.cargo', 'bin', process.platform === 'win32' ? 'tauri-driver.exe' : 'tauri-driver');
@@ -53,10 +52,7 @@ export const config = {
       return;
     }
 
-    const result = spawnSync(pnpmBinary, ['tauri', 'build', '--debug', '--no-bundle'], {
-      cwd: rootDir,
-      stdio: 'inherit',
-    });
+    const result = runPnpm(['tauri', 'build', '--debug', '--no-bundle']);
 
     if (result.status !== 0) {
       throw new Error(`Tauri debug build failed with exit code ${result.status ?? 'unknown'}.`);
@@ -91,6 +87,21 @@ export const config = {
     closeTauriDriver();
   },
 };
+
+function runPnpm(args) {
+  if (process.env.npm_execpath) {
+    return spawnSync(process.execPath, [process.env.npm_execpath, ...args], {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  }
+
+  return spawnSync('pnpm', args, {
+    cwd: rootDir,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  });
+}
 
 function closeTauriDriver() {
   tauriDriverExitExpected = true;
