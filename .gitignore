@@ -7,6 +7,8 @@ src-tauri/target/
 .workflow/
 AGENTS.md
 .playwright-mcp/
+playwright-report/
+test-results/
 openpet-settings-ui*.png
 *.log
 .env
