@@ -11,7 +11,7 @@ describe('OpenPet Tauri desktop window', () => {
     await expect(hitTarget).toBeDisplayed();
 
     await hitTarget.click();
-    await hitTarget.click({ button: 'right' });
+    await openContextMenu(hitTarget);
 
     const menu = await $('[role="menu"]');
     await expect(menu).toBeDisplayed();
@@ -43,4 +43,34 @@ async function switchToPetWindow() {
       timeoutMsg: 'Expected the OpenPet pet window to be available to WebDriver.',
     },
   );
+}
+
+async function openContextMenu(hitTarget) {
+  await hitTarget.click({ button: 'right' });
+
+  const menu = await $('[role="menu"]');
+  if (await menu.isDisplayed().catch(() => false)) {
+    return;
+  }
+
+  // WebKitGTK under Xvfb can miss WebDriver's synthesized secondary-button
+  // click even though the native Tauri webview booted successfully. Keep the
+  // native WebDriver session, but fall back to dispatching the same DOM
+  // contextmenu event so the test remains focused on OpenPet's menu behavior.
+  await browser.execute((selector) => {
+    const target = document.querySelector(selector);
+    if (!target) throw new Error(`Unable to find ${selector}`);
+    const rect = target.getBoundingClientRect();
+    target.dispatchEvent(
+      new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        button: 2,
+        buttons: 2,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+        view: window,
+      }),
+    );
+  }, PET_HIT_TARGET);
 }
