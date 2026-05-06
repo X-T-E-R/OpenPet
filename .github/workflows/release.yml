@@ -48,6 +48,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
+            libx11-dev \
             libxdo-dev
 
       - name: Set up pnpm
