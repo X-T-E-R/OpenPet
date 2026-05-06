@@ -715,6 +715,7 @@ export function PetWindow() {
       <div
         ref={spriteHitTargetRef}
         className="pet-hit-target"
+        data-testid="pet-hit-target"
         onMouseEnter={() => setPetHovered(true, true)}
         onMouseLeave={() => setPetHovered(false)}
       >

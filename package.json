@@ -10,6 +10,8 @@
     "dev:browser": "vite --host 127.0.0.1 --mode browser",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
     "release:check": "pnpm build && cargo check --manifest-path src-tauri/Cargo.toml",
     "release:bundle": "pnpm release:check && pnpm tauri:build",
     "tauri": "tauri",
@@ -25,6 +27,7 @@
     "react-dom": "^19.2.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@tauri-apps/cli": "^2.11.0",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
