@@ -130,8 +130,9 @@ export function resolvePetMotion({
   }
 
   const { left, right } = horizontalBounds(workArea, surfaceSize, surfaceInsets);
+  const clampedState = clampPetMotionToWorkArea(state, workArea, surfaceSize, surfaceInsets);
   let direction = state.direction;
-  let x = state.x + speedPx * direction;
+  let x = clampedState.x + speedPx * direction;
 
   if (x <= left) {
     x = left;
@@ -143,7 +144,7 @@ export function resolvePetMotion({
 
   return {
     x: clamp(x, left, right),
-    y: groundY(workArea, surfaceSize),
+    y: clampedState.y,
     direction,
     animation: toAnimation(direction),
   };

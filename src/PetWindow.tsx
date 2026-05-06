@@ -86,6 +86,7 @@ type DragState = {
   startPointer: { x: number; y: number };
   latestPointer: { x: number; y: number };
   startWindow: { x: number; y: number };
+  nativeDragging: boolean;
   started: boolean;
 };
 
@@ -178,6 +179,7 @@ export function PetWindow() {
   const nextClickActionRef = useRef(0);
   const motionRef = useRef<PetMotionState | null>(null);
   const workAreaRef = useRef<Rect>(fallbackWorkArea());
+  const workAreaScaleFactorRef = useRef(1);
   const surfaceSizeRef = useRef(getPetSurfaceSize(1));
   const surfaceInsetsRef = useRef(getPetSurfaceInsets(1));
   const spriteHitTargetRef = useRef<HTMLDivElement | null>(null);
@@ -282,6 +284,37 @@ export function PetWindow() {
     setDragging(active);
   }, []);
 
+  const syncMotionWithWindowPosition = useCallback((position: { x: number; y: number }) => {
+    const safeScaleFactor = workAreaScaleFactorRef.current || window.devicePixelRatio || 1;
+    const current =
+      motionRef.current ??
+      createRestingPetMotion(
+        workAreaRef.current,
+        surfaceSizeRef.current,
+        surfaceInsetsRef.current,
+      );
+    const next = clampPetMotionToWorkArea(
+      {
+        ...current,
+        x: position.x / safeScaleFactor,
+        y: position.y / safeScaleFactor,
+      },
+      workAreaRef.current,
+      surfaceSizeRef.current,
+      surfaceInsetsRef.current,
+    );
+    motionRef.current = next;
+
+    const dragState = dragStateRef.current;
+    if (!dragState?.nativeDragging) return;
+    const distance = Math.hypot(next.x - dragState.startWindow.x, next.y - dragState.startWindow.y);
+    if (!dragState.started && distance >= DRAG_START_DISTANCE_PX) {
+      dragState.started = true;
+      suppressClickRef.current = true;
+      setDragActive(true);
+    }
+  }, [setDragActive]);
+
   const moveManualDrag = useCallback((state: DragState) => {
     const deltaX = state.latestPointer.x - state.startPointer.x;
     const deltaY = state.latestPointer.y - state.startPointer.y;
@@ -314,6 +347,7 @@ export function PetWindow() {
     (pointerId?: number) => {
       const state = dragStateRef.current;
       if (!state || (pointerId !== undefined && state.pointerId !== pointerId)) return;
+      state.nativeDragging = false;
       dragStateRef.current = null;
       setDragActive(false);
     },
@@ -336,10 +370,18 @@ export function PetWindow() {
       startPointer: { x: event.screenX, y: event.screenY },
       latestPointer: { x: event.screenX, y: event.screenY },
       startWindow: { x: current.x, y: current.y },
+      nativeDragging: tauriAvailable,
       started: false,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
-  }, [markActivity]);
+    if (!tauriAvailable) return;
+    const state = dragStateRef.current;
+    void getCurrentWindow()
+      .startDragging()
+      .catch(() => {
+        if (dragStateRef.current === state && state) state.nativeDragging = false;
+      });
+  }, [markActivity, tauriAvailable]);
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -355,6 +397,7 @@ export function PetWindow() {
         suppressClickRef.current = true;
         setDragActive(true);
       }
+      if (state.nativeDragging) return;
       if (state.started) moveManualDrag(state);
     },
     [moveManualDrag, setDragActive],
@@ -450,6 +493,30 @@ export function PetWindow() {
       void appWindow.setIgnoreCursorEvents(false).catch(() => {});
     };
   }, [setPetHovered, tauriAvailable]);
+
+  useEffect(() => {
+    if (!tauriAvailable) return;
+
+    let cancelled = false;
+    let unlisten: (() => void) | null = null;
+    void getCurrentWindow()
+      .onMoved(({ payload }) => {
+        if (!cancelled) syncMotionWithWindowPosition(payload);
+      })
+      .then((nextUnlisten) => {
+        if (cancelled) {
+          nextUnlisten();
+        } else {
+          unlisten = nextUnlisten;
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [syncMotionWithWindowPosition, tauriAvailable]);
 
   useEffect(() => {
     if (!tauriAvailable) return;
@@ -556,6 +623,7 @@ export function PetWindow() {
     const refreshWorkArea = async () => {
       const snapshotWorkArea = await readWorkArea();
       workAreaRef.current = snapshotWorkArea.rect;
+      workAreaScaleFactorRef.current = snapshotWorkArea.scaleFactor;
       if (!motionRef.current) {
         motionRef.current = settings.autonomousWalking
           ? createInitialPetMotion(snapshotWorkArea.rect, surfaceSize, surfaceInsets)
