@@ -101,6 +101,7 @@ jobs:
             librsvg2-dev \
             patchelf \
             libxdo-dev \
+            dbus-x11 \
             webkit2gtk-driver \
             xvfb
 
@@ -130,10 +131,21 @@ jobs:
       - name: Install tauri-driver
         run: cargo install tauri-driver --locked
 
+      - name: Build Tauri debug app for WebDriver
+        run: pnpm tauri build --debug --no-bundle
+
       - name: Run Tauri WebDriver E2E on Linux
         if: runner.os == 'Linux'
-        run: xvfb-run pnpm e2e:tauri
+        env:
+          GDK_BACKEND: x11
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          NO_AT_BRIDGE: "1"
+          OPENPET_SKIP_TAURI_BUILD: "1"
+          WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+        run: xvfb-run -a dbus-run-session -- pnpm e2e:tauri
 
       - name: Run Tauri WebDriver E2E on Windows
         if: runner.os == 'Windows'
+        env:
+          OPENPET_SKIP_TAURI_BUILD: "1"
         run: pnpm e2e:tauri
